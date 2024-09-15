@@ -18,6 +18,7 @@ export default function App() {
   const [gameHistory, setGameHistory] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
+  const [changeBuffer, setChangeBuffer] = useState<Record<number, Record<string, number>>>({});
 
   useEffect(() => {
     loadPresets();
@@ -66,48 +67,83 @@ export default function App() {
   const logEvent = (event: string) => {
     setGameHistory(prevHistory => [...prevHistory, `[${new Date().toLocaleTimeString()}] ${event}`]);
   };
+
+  const logBufferedChanges = () => {
+    Object.entries(changeBuffer).forEach(([playerId, changes]) => {
+      const player = players.find(p => p.id === Number(playerId));
+      if (player) {
+        Object.entries(changes).forEach(([changeType, amount]) => {
+          if (amount !== 0) {
+            const action = amount > 0 ? 'gained' : 'lost';
+            const absAmount = Math.abs(amount);
+            switch (changeType) {
+              case 'life':
+                logEvent(`${player.name} ${action} ${absAmount} life. New total: ${player.life}`);
+                break;
+              case 'commanderDamage':
+                logEvent(`${player.name} received ${absAmount} commander damage. Total: ${player.commanderDamage}`);
+                break;
+              case 'poisonCounters':
+                logEvent(`${player.name} ${action} ${absAmount} poison counters. Total: ${player.poisonCounters}`);
+                break;
+            }
+          }
+        });
+      }
+    });
+    setChangeBuffer({});
+  };  
+  
+  const bufferChange = (playerId: number, changeType: string, amount: number) => {
+    setChangeBuffer(prev => {
+      const playerBuffer = prev[playerId] || {};
+      return {
+        ...prev,
+        [playerId]: {
+          ...playerBuffer,
+          [changeType]: (playerBuffer[changeType] || 0) + amount
+        }
+      };
+    });
+  };
   
   const handleLifeChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newLife = Math.max(0, p.life + amount);
-        const isDead = newLife <= 0;
-        if (isDead) {
-          logEvent(`${p.name} has been eliminated!`);
-        }
-        return { ...p, life: newLife, isDead };
-      }
-      return p;
-    }));
+    setPlayers(prevPlayers => prevPlayers.map(p => 
+      p.id === playerId ? { ...p, life: Math.max(0, p.life + amount) } : p
+    ));
+    bufferChange(playerId, 'life', amount);
   };
   
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
-        const newLife = Math.max(0, p.life - amount);
-        const isDead = newLife <= 0 || newCommanderDamage >= 21;
-        if (isDead) {
-          logEvent(`${p.name} has been eliminated by commander damage!`);
-        }
-        return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
+    const player = players.find(p => p.id === playerId);
+    if (player) {
+      const newCommanderDamage = Math.max(0, player.commanderDamage + amount);
+      const newLife = Math.max(0, player.life - amount);
+      const isDead = newLife <= 0 || newCommanderDamage >= 21;
+      setPlayers(players.map(p => p.id === playerId ? { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead } : p));
+      if (amount !== 0) {
+        logEvent(`${player.name} received ${amount} commander damage. Total: ${newCommanderDamage}`);
       }
-      return p;
-    }));
+      if (isDead) {
+        logEvent(`${player.name} has been eliminated by commander damage!`);
+      }
+    }
   };
   
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
-        const isDead = newPoisonCounters >= 10;
-        if (isDead) {
-          logEvent(`${p.name} has been eliminated by poison!`);
-        }
-        return { ...p, poisonCounters: newPoisonCounters, isDead };
+    const player = players.find(p => p.id === playerId);
+    if (player) {
+      const newPoisonCounters = Math.max(0, player.poisonCounters + amount);
+      const isDead = newPoisonCounters >= 10;
+      setPlayers(players.map(p => p.id === playerId ? { ...p, poisonCounters: newPoisonCounters, isDead } : p));
+      if (amount !== 0) {
+        const action = amount > 0 ? 'gained' : 'lost';
+        logEvent(`${player.name} ${action} ${Math.abs(amount)} poison counters. Total: ${newPoisonCounters}`);
       }
-      return p;
-    }));
+      if (isDead) {
+        logEvent(`${player.name} has been eliminated by poison!`);
+      }
+    }
   };
   
   const addPlayer = () => {
@@ -207,6 +243,15 @@ export default function App() {
       handleGameEnd(alivePlayers[0].id);
     }
   }, [players, gameEnded]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      logBufferedChanges();
+    }, 1000); // Adjust this delay as needed
+  
+    return () => clearTimeout(timer);
+  }, [changeBuffer, players]);
+  
 
   return (
     <View style={tw`flex-1 bg-gray-100 pt-12`}>
