@@ -6,9 +6,9 @@ export interface Player {
     commanderDamage: number;
     poisonCounters: number;
     isDead: boolean;
+    hasCrown: boolean;
     icon: string;
     wins: number;
-    hasCrown: boolean;
   }
   
   export interface Preset {

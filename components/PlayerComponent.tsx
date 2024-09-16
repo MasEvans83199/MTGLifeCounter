@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, Pressable } from 'react-native';
+import { View, Text, Pressable, Image } from 'react-native';
 import tw from '../tailwind';
 import { Player } from '../types';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
@@ -11,9 +11,10 @@ interface PlayerComponentProps {
   onPoisonCountersChange: (amount: number) => void;
   onSettingsPress: () => void;
   onRemove: () => void;
+  disabled: boolean;
 }
 
-const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange, onCommanderDamageChange, onPoisonCountersChange, onSettingsPress, onRemove }) => {
+const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange, onCommanderDamageChange, onPoisonCountersChange, onSettingsPress, onRemove, disabled }) => {
   const [lifeChangeBuffer, setLifeChangeBuffer] = useState(0);
   const [commanderDamageBuffer, setCommanderDamageBuffer] = useState(0);
   const [poisonCountersBuffer, setPoisonCountersBuffer] = useState(0);
@@ -99,12 +100,12 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange,
             )}
           </View>
           <View style={tw`flex-row`}>
-            <TouchableOpacity onPress={onSettingsPress} style={tw`mr-2`}>
+            <Pressable onPress={onSettingsPress} style={tw`mr-2`}>
               <FontAwesome5 name="cog" size={24} color="gray" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onRemove}>
+            </Pressable>
+            <Pressable onPress={onRemove}>
               <FontAwesome5 name="trash" size={24} color="red" />
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
         
@@ -118,6 +119,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange,
             onPressIn={() => handlePressIn(-1)}
             onPressOut={handlePressOut}
             onPress={() => handlePress(-1)}
+            disabled={disabled || player.isDead}
           >
             <Text style={tw`text-white font-bold text-xl`}>-</Text>
           </Pressable>
@@ -126,6 +128,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange,
             onPressIn={() => handlePressIn(1)}
             onPressOut={handlePressOut}
             onPress={() => handlePress(1)}
+            disabled={disabled || player.isDead}
           >
             <Text style={tw`text-white font-bold text-xl`}>+</Text>
           </Pressable>
@@ -134,26 +137,42 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange,
         <View style={tw`flex-row justify-between items-center mb-2`}>
           <Text style={tw`text-sm`}>Commander Damage:</Text>
           <View style={tw`flex-row`}>
-            <TouchableOpacity style={tw`bg-gray-500 p-1 rounded mr-1`} onPress={() => handleCommanderDamageChange(-1)}>
+            <Pressable 
+              style={tw`bg-gray-500 p-1 rounded mr-1`} 
+              onPress={() => handleCommanderDamageChange(-1)}
+              disabled={disabled || player.isDead}
+            >
               <Text style={tw`text-white font-bold`}>-</Text>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={tw`text-lg font-bold mx-2`}>{player.commanderDamage}</Text>
-            <TouchableOpacity style={tw`bg-gray-500 p-1 rounded ml-1`} onPress={() => handleCommanderDamageChange(1)}>
+            <Pressable 
+              style={tw`bg-gray-500 p-1 rounded ml-1`} 
+              onPress={() => handleCommanderDamageChange(1)}
+              disabled={disabled || player.isDead}
+            >
               <Text style={tw`text-white font-bold`}>+</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
 
         <View style={tw`flex-row justify-between items-center`}>
           <Text style={tw`text-sm`}>Poison Counters:</Text>
           <View style={tw`flex-row`}>
-            <TouchableOpacity style={tw`bg-purple-500 p-1 rounded mr-1`} onPress={() => handlePoisonCountersChange(-1)}>
+            <Pressable 
+              style={tw`bg-purple-500 p-1 rounded mr-1`} 
+              onPress={() => handlePoisonCountersChange(-1)}
+              disabled={disabled || player.isDead}
+            >
               <Text style={tw`text-white font-bold`}>-</Text>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={tw`text-lg font-bold mx-2`}>{player.poisonCounters}</Text>
-            <TouchableOpacity style={tw`bg-purple-500 p-1 rounded ml-1`} onPress={() => handlePoisonCountersChange(1)}>
+            <Pressable 
+              style={tw`bg-purple-500 p-1 rounded ml-1`} 
+              onPress={() => handlePoisonCountersChange(1)}
+              disabled={disabled || player.isDead}
+            >
               <Text style={tw`text-white font-bold`}>+</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
         

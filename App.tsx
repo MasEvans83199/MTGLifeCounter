@@ -108,28 +108,52 @@ export default function App() {
   };
   
   const handleLifeChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => 
-      p.id === playerId ? { ...p, life: Math.max(0, p.life + amount) } : p
-    ));
+    setPlayers(prevPlayers => prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newLife = Math.max(0, p.life + amount);
+        const isDead = newLife <= 0;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated due to loss of life!`);
+        }
+        return { ...p, life: newLife, isDead };
+      }
+      return p;
+    }));
     bufferChange(playerId, 'life', amount);
+    checkGameEnd();
   };
-  
+
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => 
-      p.id === playerId ? { 
-        ...p, 
-        commanderDamage: Math.max(0, p.commanderDamage + amount),
-        life: Math.max(0, p.life - amount)
-      } : p
-    ));
+    setPlayers(prevPlayers => prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
+        const newLife = Math.max(0, p.life - amount);
+        const isDead = newLife <= 0 || newCommanderDamage >= 21;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated by commander damage!`);
+        }
+        return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
+      }
+      return p;
+    }));
     bufferChange(playerId, 'commanderDamage', amount);
+    checkGameEnd();
   };
-  
+
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => 
-      p.id === playerId ? { ...p, poisonCounters: Math.max(0, p.poisonCounters + amount) } : p
-    ));
+    setPlayers(prevPlayers => prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
+        const isDead = newPoisonCounters >= 10;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated by poison!`);
+        }
+        return { ...p, poisonCounters: newPoisonCounters, isDead };
+      }
+      return p;
+    }));
     bufferChange(playerId, 'poisonCounters', amount);
+    checkGameEnd();
   };
   
   const addPlayer = () => {
@@ -177,10 +201,14 @@ export default function App() {
     logEvent(`${updatedPlayer.name}'s information has been updated.`);
   };
 
+  const checkGameEnd = () => {
+    const alivePlayers = players.filter(p => !p.isDead);
+    if (alivePlayers.length === 1 && !gameEnded) {
+      handleGameEnd(alivePlayers[0].id);
+    }
+  };
+
   const handleGameEnd = (winnerId: number) => {
-    if (gameEnded) return;
-  
-    console.log('Game ended, winner ID:', winnerId);
     const winner = players.find(p => p.id === winnerId);
     if (winner) {
       logEvent(`${winner.name} has won the game!`);
@@ -189,7 +217,7 @@ export default function App() {
         hasCrown: p.id === winnerId,
         wins: p.id === winnerId ? p.wins + 1 : p.wins
       })));
-  
+
       if (currentPreset) {
         const updatedPreset = {
           ...currentPreset,
@@ -205,18 +233,7 @@ export default function App() {
       }
       setGameEnded(true);
     }
-  };
-  
-  const checkGameEnd = () => {
-    if (gameEnded) return;
-  
-    const alivePlayers = players.filter(p => !p.isDead);
-    if (alivePlayers.length === 1) {
-      const winner = alivePlayers[0];
-      handleGameEnd(winner.id);
-      setGameEnded(true);
-    }
-  };  
+  }; 
   
   useEffect(() => {
     if (gameEnded) return;
@@ -233,7 +250,7 @@ export default function App() {
   useEffect(() => {
     const timer = setTimeout(() => {
       logBufferedChanges();
-    }, 1000); // Adjust this delay as needed
+    }, 1000);
   
     return () => clearTimeout(timer);
   }, [changeBuffer, players]);
@@ -252,11 +269,16 @@ export default function App() {
             onPoisonCountersChange={(amount) => handlePoisonCountersChange(player.id, amount)}
             onSettingsPress={() => setShowSettings(player.id)}
             onRemove={() => removePlayer(player.id)}
+            disabled={gameEnded}
           />
         ))}
       </ScrollView>
       <View style={tw`flex-row justify-center p-4 flex-wrap`}>
-        <TouchableOpacity style={tw`bg-blue-500 p-2 rounded m-1`} onPress={addPlayer}>
+        <TouchableOpacity 
+          style={tw`${gameEnded ? 'bg-gray-400' : 'bg-blue-500'} p-2 rounded m-1`} 
+          onPress={addPlayer}
+          disabled={gameEnded}
+        >
           <Text style={tw`text-white font-bold`}>Add Player</Text>
         </TouchableOpacity>
         <TouchableOpacity style={tw`bg-red-500 p-2 rounded m-1`} onPress={resetGame}>
