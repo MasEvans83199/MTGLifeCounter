@@ -1,57 +1,92 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, Pressable } from 'react-native';
 import tw from '../tailwind';
 import { Player } from '../types';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 
 interface PlayerComponentProps {
-    player: Player;
-    onLifeChange: (amount: number) => void;
-    onCommanderDamageChange: (amount: number) => void;
-    onPoisonCountersChange: (amount: number) => void;
-    onSettingsPress: () => void;
-    onRemove: () => void;
-  }
+  player: Player;
+  onLifeChange: (amount: number) => void;
+  onCommanderDamageChange: (amount: number) => void;
+  onPoisonCountersChange: (amount: number) => void;
+  onSettingsPress: () => void;
+  onRemove: () => void;
+}
+
+const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange, onCommanderDamageChange, onPoisonCountersChange, onSettingsPress, onRemove }) => {
+  const [lifeChangeBuffer, setLifeChangeBuffer] = useState(0);
+  const [commanderDamageBuffer, setCommanderDamageBuffer] = useState(0);
+  const [poisonCountersBuffer, setPoisonCountersBuffer] = useState(0);
+  const longPressTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [isLongPress, setIsLongPress] = useState(false);
+  const [hasLongPressed, setHasLongPressed] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (lifeChangeBuffer !== 0) {
+        onLifeChange(lifeChangeBuffer);
+        setLifeChangeBuffer(0);
+      }
+      if (commanderDamageBuffer !== 0) {
+        onCommanderDamageChange(commanderDamageBuffer);
+        setCommanderDamageBuffer(0);
+      }
+      if (poisonCountersBuffer !== 0) {
+        onPoisonCountersChange(poisonCountersBuffer);
+        setPoisonCountersBuffer(0);
+      }
+    }, 0);
   
-  const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange, onCommanderDamageChange, onPoisonCountersChange, onSettingsPress, onRemove }) => {
-    const [lifeChangeBuffer, setLifeChangeBuffer] = useState(0);
-    const [commanderDamageBuffer, setCommanderDamageBuffer] = useState(0);
-    const [poisonCountersBuffer, setPoisonCountersBuffer] = useState(0);
+    return () => clearTimeout(timer);
+  }, [lifeChangeBuffer, commanderDamageBuffer, poisonCountersBuffer]);
   
-    useEffect(() => {
-      const timer = setTimeout(() => {
-        if (lifeChangeBuffer !== 0) {
-          onLifeChange(lifeChangeBuffer);
-          setLifeChangeBuffer(0);
-        }
-        if (commanderDamageBuffer !== 0) {
-          onCommanderDamageChange(commanderDamageBuffer);
-          setCommanderDamageBuffer(0);
-        }
-        if (poisonCountersBuffer !== 0) {
-          onPoisonCountersChange(poisonCountersBuffer);
-          setPoisonCountersBuffer(0);
-        }
-      }, 0);
-    
-      return () => clearTimeout(timer);
-    }, [lifeChangeBuffer, commanderDamageBuffer, poisonCountersBuffer]);
-    
-    const handleLifeChange = (amount: number) => {
-      setLifeChangeBuffer(prev => prev + amount);
-    };
-  
-    const handleCommanderDamageChange = (amount: number) => {
-      setCommanderDamageBuffer(prev => prev + amount);
-    };
-  
-    const handlePoisonCountersChange = (amount: number) => {
-      setPoisonCountersBuffer(prev => prev + amount);
-    };
-  
-    const handleLongPress = (amount: number) => {
+  const handleLifeChange = (amount: number) => {
+    setLifeChangeBuffer(prev => prev + amount);
+  };
+
+  const handleCommanderDamageChange = (amount: number) => {
+    setCommanderDamageBuffer(prev => prev + amount);
+  };
+
+  const handlePoisonCountersChange = (amount: number) => {
+    setPoisonCountersBuffer(prev => prev + amount);
+  };
+
+  const startLongPress = (amount: number) => {
+    setIsLongPress(true);
+    handleLifeChange(amount * 10);
+    intervalRef.current = setInterval(() => {
       handleLifeChange(amount * 10);
-    };    
+    }, 200);
+  };
+
+  const handlePressIn = (amount: number) => {
+    setHasLongPressed(false);
+    longPressTimeoutRef.current = setTimeout(() => {
+      setHasLongPressed(true);
+      startLongPress(amount);
+    }, 500);
+  };
+  
+  const handlePressOut = () => {
+    if (longPressTimeoutRef.current) {
+      clearTimeout(longPressTimeoutRef.current);
+      longPressTimeoutRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setIsLongPress(false);
+  };
+  
+  const handlePress = (amount: number) => {
+    if (!hasLongPressed) {
+      handleLifeChange(amount);
+    }
+    setHasLongPressed(false);
+  };
   
     return (
       <View style={tw`bg-mana-${player.manaColor} p-4 rounded-lg m-2 w-full max-w-xs ${player.isDead ? 'opacity-50' : ''}`}>
@@ -80,17 +115,17 @@ interface PlayerComponentProps {
         <View style={tw`flex-row justify-between mb-4`}>
           <Pressable 
             style={tw`bg-red-500 p-3 rounded-full`} 
-            onPress={() => handleLifeChange(-1)}
-            onLongPress={() => handleLongPress(-1)}
-            delayLongPress={500}
+            onPressIn={() => handlePressIn(-1)}
+            onPressOut={handlePressOut}
+            onPress={() => handlePress(-1)}
           >
             <Text style={tw`text-white font-bold text-xl`}>-</Text>
           </Pressable>
           <Pressable 
             style={tw`bg-green-500 p-3 rounded-full`} 
-            onPress={() => handleLifeChange(1)}
-            onLongPress={() => handleLongPress(1)}
-            delayLongPress={500}
+            onPressIn={() => handlePressIn(1)}
+            onPressOut={handlePressOut}
+            onPress={() => handlePress(1)}
           >
             <Text style={tw`text-white font-bold text-xl`}>+</Text>
           </Pressable>

@@ -115,35 +115,21 @@ export default function App() {
   };
   
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      const newCommanderDamage = Math.max(0, player.commanderDamage + amount);
-      const newLife = Math.max(0, player.life - amount);
-      const isDead = newLife <= 0 || newCommanderDamage >= 21;
-      setPlayers(players.map(p => p.id === playerId ? { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead } : p));
-      if (amount !== 0) {
-        logEvent(`${player.name} received ${amount} commander damage. Total: ${newCommanderDamage}`);
-      }
-      if (isDead) {
-        logEvent(`${player.name} has been eliminated by commander damage!`);
-      }
-    }
+    setPlayers(prevPlayers => prevPlayers.map(p => 
+      p.id === playerId ? { 
+        ...p, 
+        commanderDamage: Math.max(0, p.commanderDamage + amount),
+        life: Math.max(0, p.life - amount)
+      } : p
+    ));
+    bufferChange(playerId, 'commanderDamage', amount);
   };
   
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    const player = players.find(p => p.id === playerId);
-    if (player) {
-      const newPoisonCounters = Math.max(0, player.poisonCounters + amount);
-      const isDead = newPoisonCounters >= 10;
-      setPlayers(players.map(p => p.id === playerId ? { ...p, poisonCounters: newPoisonCounters, isDead } : p));
-      if (amount !== 0) {
-        const action = amount > 0 ? 'gained' : 'lost';
-        logEvent(`${player.name} ${action} ${Math.abs(amount)} poison counters. Total: ${newPoisonCounters}`);
-      }
-      if (isDead) {
-        logEvent(`${player.name} has been eliminated by poison!`);
-      }
-    }
+    setPlayers(prevPlayers => prevPlayers.map(p => 
+      p.id === playerId ? { ...p, poisonCounters: Math.max(0, p.poisonCounters + amount) } : p
+    ));
+    bufferChange(playerId, 'poisonCounters', amount);
   };
   
   const addPlayer = () => {
