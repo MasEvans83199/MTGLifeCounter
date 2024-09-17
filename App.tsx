@@ -8,6 +8,7 @@ import PlayerComponent from './components/PlayerComponent';
 import PlayerSettings from './components/PlayerSettings';
 import GameHistory from './components/GameHistory';
 import GameTimer from './components/GameTimer';
+import CardArtSelector from './components/CardArtSelector';
 
 export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -187,10 +188,10 @@ export default function App() {
   };
 
   const getPlayerContainerStyle = (totalPlayers: number, index: number) => {
-    if (totalPlayers === 1) return tw`w-full`;
-    if (totalPlayers === 2) return tw`w-1/2`;
-    if (totalPlayers === 3) return index === 2 ? tw`w-1/2 h-full` : tw`w-1/2 h-1/2`;
-    return tw`w-1/2 h-1/2`;
+    if (totalPlayers === 1) return 'w-full aspect-[3/4]';
+    if (totalPlayers === 2) return 'w-1/2 aspect-[3/4]';
+    if (totalPlayers === 3) return index === 2 ? 'w-full aspect-[3/4]' : 'w-1/2 aspect-[3/4]';
+    return 'w-1/2 aspect-[3/4]';
   };
   
   const addPlayer = () => {
@@ -204,7 +205,7 @@ export default function App() {
         commanderDamage: 0,
         poisonCounters: 0,
         isDead: false,
-        icon: 'default_icon.png',
+        icon: 'https://gatherer.wizards.com/Handlers/Image.ashx?type=card&multiverseid=0',  // Default card back
         wins: 0,
         hasCrown: false
       };
@@ -212,7 +213,7 @@ export default function App() {
       logEvent(`${newPlayer.name} has joined the game.`);
     }
   };
-
+  
   const removePlayer = (playerId: number) => {
     const player = players.find(p => p.id === playerId);
     if (player) {
@@ -280,15 +281,18 @@ export default function App() {
   };
   
   const handleGameEnd = (winnerId: number) => {
+    if (gameEnded) return;
+    
     const winner = players.find(p => p.id === winnerId);
     if (winner) {
+      console.log('Handling game end. Winner:', winner.name);
       logEvent(`${winner.name} has won the game!`);
       setPlayers(prevPlayers => prevPlayers.map(p => ({
         ...p,
         hasCrown: p.id === winnerId,
         wins: p.id === winnerId ? p.wins + 1 : p.wins
       })));
-
+  
       if (currentPreset) {
         const updatedPreset = {
           ...currentPreset,
@@ -304,20 +308,60 @@ export default function App() {
       }
       setGameEnded(true);
     }
-  }; 
+  };
+  
+  useEffect(() => {
+    const saveGameState = async () => {
+      try {
+        await AsyncStorage.setItem('gameState', JSON.stringify({
+          players,
+          gameHistory,
+          gameEnded
+        }));
+      } catch (error) {
+        console.error('Failed to save game state', error);
+      }
+    };
+  
+    saveGameState();
+  }, [players, gameHistory, gameEnded]);
+  
+  useEffect(() => {
+    const loadGameState = async () => {
+      try {
+        const savedState = await AsyncStorage.getItem('gameState');
+        if (savedState) {
+          const { players: savedPlayers, gameHistory: savedHistory, gameEnded: savedGameEnded } = JSON.parse(savedState);
+          setPlayers(savedPlayers);
+          setGameHistory(savedHistory);
+          setGameEnded(savedGameEnded);
+        }
+      } catch (error) {
+        console.error('Failed to load game state', error);
+      }
+    };
+  
+    loadGameState();
+  }, []);
   
   useEffect(() => {
     if (gameEnded) return;
   
-    console.log('Players state changed:', players);
-    const alivePlayers = players.filter(p => !p.isDead);
-    console.log('Alive players:', alivePlayers.length);
-    
-    if (players.length > 1 && alivePlayers.length === 1) {
-      handleGameEnd(alivePlayers[0].id);
+    const updatedPlayers = players.map(player => ({
+      ...player,
+      isDead: player.life <= 0 || player.commanderDamage >= 21 || player.poisonCounters >= 10
+    }));
+  
+    if (JSON.stringify(updatedPlayers) !== JSON.stringify(players)) {
+      setPlayers(updatedPlayers);
+      const alivePlayers = updatedPlayers.filter(p => !p.isDead);
+      console.log('Players updated. Alive players:', alivePlayers.length);
+      if (alivePlayers.length === 1) {
+        checkGameEnd();
+      }
     }
   }, [players, gameEnded]);
-
+  
   useEffect(() => {
     if (isTimerActive && timeLeft > 0) {
       runTimer();
@@ -338,9 +382,9 @@ export default function App() {
           <Text style={tw`text-white font-bold`}>{formatTime(timeLeft)}</Text>
         </Animated.View>
       )}
-      <View style={tw`flex-1 flex-row flex-wrap justify-center items-center px-2`}>
+      <View style={tw`flex-1 flex-row flex-wrap justify-center items-stretch p-2`}>
         {players.map((player, index) => (
-          <View key={player.id} style={getPlayerContainerStyle(players.length, index)}>
+          <View key={player.id} style={tw`${getPlayerContainerStyle(players.length, index)}`}>
             <PlayerComponent
               player={player}
               onLifeChange={(amount) => handleLifeChange(player.id, amount)}
@@ -373,8 +417,13 @@ export default function App() {
 
       <PlayerSettings
         visible={showSettings !== null}
-        player={players.find(p => p.id === showSettings)!}
-        onUpdate={updatePlayer}
+        player={players.find(p => p.id === showSettings) || null}
+        onUpdate={(updatedPlayer) => {
+          if (updatedPlayer) {
+            updatePlayer(updatedPlayer);
+          }
+          setShowSettings(null);
+        }}
         onClose={() => setShowSettings(null)}
       />
 
