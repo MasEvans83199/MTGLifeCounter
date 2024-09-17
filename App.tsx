@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Modal, TextInput } from 'react-native';
+import { View, Text, Pressable, Animated, Modal, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Ionicons } from '@expo/vector-icons';
 import tw from './tailwind';
 import { Player, Preset } from './types';
 import PlayerComponent from './components/PlayerComponent';
 import PlayerSettings from './components/PlayerSettings';
 import GameHistory from './components/GameHistory';
+import GameTimer from './components/GameTimer';
 
 export default function App() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -19,6 +21,13 @@ export default function App() {
   const [showHistory, setShowHistory] = useState(false);
   const [gameEnded, setGameEnded] = useState(false);
   const [changeBuffer, setChangeBuffer] = useState<Record<number, Record<string, number>>>({});
+  const [showGameTimer, setShowGameTimer] = useState(false);
+  const [timerDuration, setTimerDuration] = useState(0);
+  const [isTimerActive, setIsTimerActive] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
+  const [showMiniTimer, setShowMiniTimer] = useState(false);
+  const [miniTimerOpacity] = useState(new Animated.Value(1));
+  const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     loadPresets();
@@ -54,14 +63,35 @@ export default function App() {
     }
   };
 
+  const editPreset = (presetId: string) => {
+    const preset = presets.find(p => p.id === presetId);
+    if (preset) {
+      setPresetName(preset.name);
+      setCurrentPreset(preset);
+      setShowSavePresetModal(true);
+    }
+  };
+  
+  const deletePreset = async (presetId: string) => {
+    const updatedPresets = presets.filter(p => p.id !== presetId);
+    setPresets(updatedPresets);
+    try {
+      await AsyncStorage.setItem('presets', JSON.stringify(updatedPresets));
+    } catch (error) {
+      console.error('Failed to delete preset', error);
+    }
+  };  
+
   const loadPreset = (preset: Preset) => {
     setPlayers(preset.players.map(p => ({ ...p, life: 40, commanderDamage: 0, poisonCounters: 0, isDead: false })));
     setCurrentPreset(preset);
     setShowPresetModal(false);
   };
 
-  const formatTimestamp = () => {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
   
   const logEvent = (event: string) => {
@@ -155,6 +185,13 @@ export default function App() {
     bufferChange(playerId, 'poisonCounters', amount);
     checkGameEnd();
   };
+
+  const getPlayerContainerStyle = (totalPlayers: number, index: number) => {
+    if (totalPlayers === 1) return tw`w-full`;
+    if (totalPlayers === 2) return tw`w-1/2`;
+    if (totalPlayers === 3) return index === 2 ? tw`w-1/2 h-full` : tw`w-1/2 h-1/2`;
+    return tw`w-1/2 h-1/2`;
+  };
   
   const addPlayer = () => {
     if (players.length < 4) {
@@ -184,6 +221,40 @@ export default function App() {
     }
   };
 
+  const handleTimeUp = () => {
+    logEvent("Time's up!");
+    blinkMiniTimer();
+    if (timerInterval) clearInterval(timerInterval);
+    setIsTimerActive(false);
+  };  
+
+  const blinkMiniTimer = () => {
+    Animated.sequence([
+      Animated.timing(miniTimerOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(miniTimerOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.timing(miniTimerOpacity, { toValue: 0, duration: 500, useNativeDriver: true }),
+      Animated.timing(miniTimerOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+    ]).start(() => setShowMiniTimer(false));
+  };
+
+  const runTimer = () => {
+    if (timerInterval) clearInterval(timerInterval);
+    
+    const interval = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 1) {
+          clearInterval(interval);
+          setIsTimerActive(false);
+          handleTimeUp();
+          return 0;
+        }
+        return prevTime - 1;
+      });
+    }, 1000);
+  
+    setTimerInterval(interval);
+  };  
+
   const resetGame = () => {
     setPlayers(players.map(player => ({ 
       ...player, 
@@ -203,11 +274,11 @@ export default function App() {
 
   const checkGameEnd = () => {
     const alivePlayers = players.filter(p => !p.isDead);
-    if (alivePlayers.length === 1 && !gameEnded) {
+    if (players.length > 1 && alivePlayers.length === 1 && !gameEnded) {
       handleGameEnd(alivePlayers[0].id);
     }
   };
-
+  
   const handleGameEnd = (winnerId: number) => {
     const winner = players.find(p => p.id === winnerId);
     if (winner) {
@@ -242,54 +313,62 @@ export default function App() {
     const alivePlayers = players.filter(p => !p.isDead);
     console.log('Alive players:', alivePlayers.length);
     
-    if (alivePlayers.length === 1) {
+    if (players.length > 1 && alivePlayers.length === 1) {
       handleGameEnd(alivePlayers[0].id);
     }
   }, [players, gameEnded]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      logBufferedChanges();
-    }, 1000);
+    if (isTimerActive && timeLeft > 0) {
+      runTimer();
+    } else if (!isTimerActive && timerInterval) {
+      clearInterval(timerInterval);
+    }
   
-    return () => clearTimeout(timer);
-  }, [changeBuffer, players]);
-  
+    return () => {
+      if (timerInterval) clearInterval(timerInterval);
+    };
+  }, [isTimerActive, timerDuration]);  
 
   return (
     <View style={tw`flex-1 bg-gray-100 pt-12`}>
       <Text style={tw`text-3xl font-bold text-center mb-4`}>MTG Life Counter</Text>
-      <ScrollView contentContainerStyle={tw`items-center`}>
-        {players.map(player => (
-          <PlayerComponent
-            key={player.id}
-            player={player}
-            onLifeChange={(amount) => handleLifeChange(player.id, amount)}
-            onCommanderDamageChange={(amount) => handleCommanderDamageChange(player.id, amount)}
-            onPoisonCountersChange={(amount) => handlePoisonCountersChange(player.id, amount)}
-            onSettingsPress={() => setShowSettings(player.id)}
-            onRemove={() => removePlayer(player.id)}
-            disabled={gameEnded}
-          />
+      {showMiniTimer && (
+        <Animated.View style={[tw`absolute top-4 right-4 bg-gray-800 p-2 rounded`, { opacity: miniTimerOpacity }]}>
+          <Text style={tw`text-white font-bold`}>{formatTime(timeLeft)}</Text>
+        </Animated.View>
+      )}
+      <View style={tw`flex-1 flex-row flex-wrap justify-center items-center px-2`}>
+        {players.map((player, index) => (
+          <View key={player.id} style={getPlayerContainerStyle(players.length, index)}>
+            <PlayerComponent
+              player={player}
+              onLifeChange={(amount) => handleLifeChange(player.id, amount)}
+              onCommanderDamageChange={(amount) => handleCommanderDamageChange(player.id, amount)}
+              onPoisonCountersChange={(amount) => handlePoisonCountersChange(player.id, amount)}
+              onSettingsPress={() => setShowSettings(player.id)}
+              onRemove={() => removePlayer(player.id)}
+              disabled={gameEnded}
+            />
+          </View>
         ))}
-      </ScrollView>
-      <View style={tw`flex-row justify-center p-4 flex-wrap`}>
-        <TouchableOpacity 
-          style={tw`${gameEnded ? 'bg-gray-400' : 'bg-blue-500'} p-2 rounded m-1`} 
-          onPress={addPlayer}
-          disabled={gameEnded}
-        >
-          <Text style={tw`text-white font-bold`}>Add Player</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`bg-red-500 p-2 rounded m-1`} onPress={resetGame}>
-          <Text style={tw`text-white font-bold`}>Reset Game</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`bg-green-500 p-2 rounded m-1`} onPress={() => setShowPresetModal(true)}>
-          <Text style={tw`text-white font-bold`}>Presets</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={tw`bg-yellow-500 p-2 rounded m-1`} onPress={() => setShowHistory(true)}>
-          <Text style={tw`text-white font-bold`}>Show History</Text>
-        </TouchableOpacity>
+      </View>
+      <View style={tw`flex-row justify-center p-4`}>
+        <Pressable style={tw`mx-2`} onPress={addPlayer} disabled={gameEnded || players.length >= 4}>
+          <Ionicons name="person-add" size={24} color={gameEnded || players.length >= 4 ? "gray" : "blue"} />
+        </Pressable>
+        <Pressable style={tw`mx-2`} onPress={resetGame}>
+          <Ionicons name="refresh" size={24} color="red" />
+        </Pressable>
+        <Pressable style={tw`mx-2`} onPress={() => setShowPresetModal(true)}>
+          <Ionicons name="save" size={24} color="green" />
+        </Pressable>
+        <Pressable style={tw`mx-2`} onPress={() => setShowHistory(true)}>
+          <Ionicons name="list" size={24} color="orange" />
+        </Pressable>
+        <Pressable style={tw`mx-2`} onPress={() => setShowGameTimer(true)}>
+          <Ionicons name="timer" size={24} color="purple" />
+        </Pressable>
       </View>
 
       <PlayerSettings
@@ -299,35 +378,44 @@ export default function App() {
         onClose={() => setShowSettings(null)}
       />
 
+      {/* Preset Modal */}
       <Modal visible={showPresetModal} animationType="slide" transparent={true}>
         <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
           <View style={tw`bg-white p-4 rounded-lg w-4/5`}>
             <Text style={tw`text-lg font-bold mb-2`}>Presets</Text>
             {presets.map(preset => (
-              <TouchableOpacity
-                key={preset.id}
-                style={tw`bg-blue-100 p-2 rounded mb-2`}
-                onPress={() => loadPreset(preset)}
-              >
-                <Text>{preset.name}</Text>
-              </TouchableOpacity>
+              <View key={preset.id} style={tw`flex-row items-center justify-between mb-2`}>
+                <Pressable
+                  style={tw`flex-1 bg-blue-100 p-2 rounded mr-2`}
+                  onPress={() => loadPreset(preset)}
+                >
+                  <Text>{preset.name}</Text>
+                </Pressable>
+                <Pressable onPress={() => editPreset(preset.id)}>
+                  <Ionicons name="pencil" size={24} color="blue" />
+                </Pressable>
+                <Pressable onPress={() => deletePreset(preset.id)}>
+                  <Ionicons name="trash" size={24} color="red" />
+                </Pressable>
+              </View>
             ))}
-            <TouchableOpacity
+            <Pressable
               style={tw`bg-green-500 p-2 rounded mt-2`}
               onPress={() => setShowSavePresetModal(true)}
             >
               <Text style={tw`text-white text-center`}>Save Current as Preset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
+            </Pressable>
+            <Pressable
               style={tw`bg-red-500 p-2 rounded mt-2`}
               onPress={() => setShowPresetModal(false)}
             >
               <Text style={tw`text-white text-center`}>Close</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
         </View>
       </Modal>
 
+      {/* Save Preset Modal */}
       <Modal visible={showSavePresetModal} animationType="slide" transparent={true}>
         <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
           <View style={tw`bg-white p-4 rounded-lg w-4/5`}>
@@ -337,12 +425,44 @@ export default function App() {
               onChangeText={setPresetName}
               placeholder="Enter preset name"
             />
-            <TouchableOpacity onPress={savePreset} style={tw`bg-blue-500 p-2 rounded mb-2`}>
+            <Pressable onPress={savePreset} style={tw`bg-blue-500 p-2 rounded mb-2`}>
               <Text style={tw`text-white text-center font-bold`}>Save Preset</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setShowSavePresetModal(false)} style={tw`bg-red-500 p-2 rounded`}>
+            </Pressable>
+            <Pressable onPress={() => setShowSavePresetModal(false)} style={tw`bg-red-500 p-2 rounded`}>
               <Text style={tw`text-white text-center font-bold`}>Cancel</Text>
-            </TouchableOpacity>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Game Timer Modal */}
+      <Modal visible={showGameTimer} animationType="slide" transparent={true}>
+        <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
+          <View style={tw`bg-white p-4 rounded-lg w-4/5`}>
+            <GameTimer 
+              onTimeUp={handleTimeUp}
+              duration={timerDuration}
+              timeLeft={timeLeft}
+              isActive={isTimerActive}
+              onDurationChange={(newDuration) => {
+                setTimerDuration(newDuration);
+                setTimeLeft(newDuration);
+                setShowMiniTimer(true);
+              }}
+              onActiveChange={(active) => {
+                setIsTimerActive(active);
+                setShowMiniTimer(true);
+              }}
+            />
+            <Pressable
+              style={tw`bg-red-500 p-2 rounded mt-4`}
+              onPress={() => {
+                setShowGameTimer(false);
+                setShowMiniTimer(true);
+              }}
+            >
+              <Text style={tw`text-white text-center font-bold`}>Close</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
