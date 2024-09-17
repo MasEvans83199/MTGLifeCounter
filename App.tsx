@@ -11,6 +11,7 @@ import GameHistory from './components/GameHistory';
 import GameTimer from './components/GameTimer';
 import DiceRoller from './components/DiceRoller';
 import CardArtSelector from './components/CardArtSelector';
+import CardSearch from './components/CardSearch';
 
 const loadFonts = async () => {
   await Font.loadAsync({
@@ -38,6 +39,7 @@ function MainContent(){
   const [miniTimerOpacity] = useState(new Animated.Value(1));
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [showDiceRoller, setShowDiceRoller] = useState(false);
+  const [showCardSearch, setShowCardSearch] = useState(false);
 
   useEffect(() => {
     loadPresets();
@@ -433,6 +435,9 @@ function MainContent(){
         <Pressable style={tw`mx-2`} onPress={() => setShowHistory(true)}>
           <Ionicons name="list" size={24} color="orange" />
         </Pressable>
+        <Pressable style={tw`mx-2`} onPress={() => setShowCardSearch(true)}>
+          <Ionicons name="search" size={24} color="blue" />
+        </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowDiceRoller(true)}>
           <Ionicons name="dice" size={24} color="blue" />
         </Pressable>
@@ -560,6 +565,11 @@ function MainContent(){
         visible={showHistory} 
         history={gameHistory} 
         onClose={() => setShowHistory(false)} 
+      />
+
+      <CardSearch 
+        visible={showCardSearch}
+        onClose={() => setShowCardSearch(false)}
       />
     </View>
   );
