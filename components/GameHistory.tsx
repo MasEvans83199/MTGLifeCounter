@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Modal, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Modal, ScrollView, Pressable } from 'react-native';
 import tw from '../tailwind';
 
 interface GameHistoryProps {
@@ -19,9 +19,9 @@ const GameHistory: React.FC<GameHistoryProps> = ({ visible, history, onClose }) 
               <Text key={index} style={tw`mb-1`}>{event}</Text>
             ))}
           </ScrollView>
-          <TouchableOpacity onPress={onClose} style={tw`mt-4 bg-red-500 p-2 rounded`}>
+          <Pressable onPress={onClose} style={tw`mt-4 bg-red-500 p-2 rounded`}>
             <Text style={tw`text-white text-center font-bold`}>Close</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </Modal>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Image, Text, TouchableOpacity, FlatList, Modal } from 'react-native';
+import { View, Image, Text, Pressable, FlatList, Modal } from 'react-native';
 import tw from '../tailwind';
 
 const cardIcons = [
@@ -22,16 +22,16 @@ const IconSelector: React.FC<IconSelectorProps> = ({ visible, onSelect, onClose 
           <FlatList
             data={cardIcons}
             renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => onSelect(item)} style={tw`p-2`}>
+              <Pressable onPress={() => onSelect(item)} style={tw`p-2`}>
                 <Image source={{ uri: item }} style={tw`w-16 h-16 rounded`} />
-              </TouchableOpacity>
+              </Pressable>
             )}
             keyExtractor={(item) => item}
             numColumns={3}
           />
-          <TouchableOpacity onPress={onClose} style={tw`mt-4 bg-red-500 p-2 rounded`}>
+          <Pressable onPress={onClose} style={tw`mt-4 bg-red-500 p-2 rounded`}>
             <Text style={tw`text-white text-center font-bold`}>Close</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </View>
     </Modal>

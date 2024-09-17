@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import * as Font from 'expo-font';
 import { View, Text, Pressable, Animated, Modal, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,9 +9,16 @@ import PlayerComponent from './components/PlayerComponent';
 import PlayerSettings from './components/PlayerSettings';
 import GameHistory from './components/GameHistory';
 import GameTimer from './components/GameTimer';
+import DiceRoller from './components/DiceRoller';
 import CardArtSelector from './components/CardArtSelector';
 
-export default function App() {
+const loadFonts = async () => {
+  await Font.loadAsync({
+    'dicefont': require('./assets/dice/dicefont.ttf'),
+  });
+};
+
+function MainContent(){
   const [players, setPlayers] = useState<Player[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
   const [currentPreset, setCurrentPreset] = useState<Preset | null>(null);
@@ -29,6 +37,7 @@ export default function App() {
   const [showMiniTimer, setShowMiniTimer] = useState(false);
   const [miniTimerOpacity] = useState(new Animated.Value(1));
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
+  const [showDiceRoller, setShowDiceRoller] = useState(false);
 
   useEffect(() => {
     loadPresets();
@@ -139,7 +148,7 @@ export default function App() {
   };
   
   const handleLifeChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
+    const updatedPlayers = players.map(p => {
       if (p.id === playerId) {
         const newLife = Math.max(0, p.life + amount);
         const isDead = newLife <= 0;
@@ -149,13 +158,14 @@ export default function App() {
         return { ...p, life: newLife, isDead };
       }
       return p;
-    }));
+    });
+    setPlayers(updatedPlayers);
     bufferChange(playerId, 'life', amount);
-    checkGameEnd();
+    return updatedPlayers;
   };
-
+  
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
+    const updatedPlayers = players.map(p => {
       if (p.id === playerId) {
         const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
         const newLife = Math.max(0, p.life - amount);
@@ -166,13 +176,14 @@ export default function App() {
         return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
       }
       return p;
-    }));
+    });
+    setPlayers(updatedPlayers);
     bufferChange(playerId, 'commanderDamage', amount);
-    checkGameEnd();
+    return updatedPlayers;
   };
-
+  
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
+    const updatedPlayers = players.map(p => {
       if (p.id === playerId) {
         const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
         const isDead = newPoisonCounters >= 10;
@@ -182,11 +193,12 @@ export default function App() {
         return { ...p, poisonCounters: newPoisonCounters, isDead };
       }
       return p;
-    }));
+    });
+    setPlayers(updatedPlayers);
     bufferChange(playerId, 'poisonCounters', amount);
-    checkGameEnd();
+    return updatedPlayers;
   };
-
+  
   const getPlayerContainerStyle = (totalPlayers: number, index: number) => {
     if (totalPlayers === 1) return 'w-full aspect-[3/4]';
     if (totalPlayers === 2) return 'w-1/2 aspect-[3/4]';
@@ -205,7 +217,7 @@ export default function App() {
         commanderDamage: 0,
         poisonCounters: 0,
         isDead: false,
-        icon: 'https://gatherer.wizards.com/Handlers/Image.ashx?type=card&multiverseid=0',  // Default card back
+        icon: 'https://gatherer.wizards.com/Handlers/Image.ashx?type=card&multiverseid=0',
         wins: 0,
         hasCrown: false
       };
@@ -254,7 +266,11 @@ export default function App() {
     }, 1000);
   
     setTimerInterval(interval);
-  };  
+  }; 
+  
+  const handleDiceRoll = (result: number) => {
+    logEvent(`Dice roll result: ${result}`);
+  };
 
   const resetGame = () => {
     setPlayers(players.map(player => ({ 
@@ -273,14 +289,7 @@ export default function App() {
     logEvent(`${updatedPlayer.name}'s information has been updated.`);
   };
 
-  const checkGameEnd = () => {
-    const alivePlayers = players.filter(p => !p.isDead);
-    if (players.length > 1 && alivePlayers.length === 1 && !gameEnded) {
-      handleGameEnd(alivePlayers[0].id);
-    }
-  };
-  
-  const handleGameEnd = (winnerId: number) => {
+  const handleGameEnd = useCallback((winnerId: number) => {
     if (gameEnded) return;
     
     const winner = players.find(p => p.id === winnerId);
@@ -307,6 +316,16 @@ export default function App() {
         );
       }
       setGameEnded(true);
+    }
+  }, [players, gameEnded, currentPreset, presets, logEvent]);  
+
+  const updatePlayersAndCheckEnd = (updatedPlayers: Player[]) => {
+    setPlayers(updatedPlayers);
+    const alivePlayers = updatedPlayers.filter(p => !p.isDead);
+    console.log('Checking game end. Alive players:', alivePlayers.length);
+    if (updatedPlayers.length > 1 && alivePlayers.length === 1 && !gameEnded) {
+      console.log('Game should end. Winner:', alivePlayers[0].name);
+      handleGameEnd(alivePlayers[0].id);
     }
   };
   
@@ -353,12 +372,7 @@ export default function App() {
     }));
   
     if (JSON.stringify(updatedPlayers) !== JSON.stringify(players)) {
-      setPlayers(updatedPlayers);
-      const alivePlayers = updatedPlayers.filter(p => !p.isDead);
-      console.log('Players updated. Alive players:', alivePlayers.length);
-      if (alivePlayers.length === 1) {
-        checkGameEnd();
-      }
+      updatePlayersAndCheckEnd(updatedPlayers);
     }
   }, [players, gameEnded]);
   
@@ -387,9 +401,18 @@ export default function App() {
           <View key={player.id} style={tw`${getPlayerContainerStyle(players.length, index)}`}>
             <PlayerComponent
               player={player}
-              onLifeChange={(amount) => handleLifeChange(player.id, amount)}
-              onCommanderDamageChange={(amount) => handleCommanderDamageChange(player.id, amount)}
-              onPoisonCountersChange={(amount) => handlePoisonCountersChange(player.id, amount)}
+              onLifeChange={(amount) => {
+                const updatedPlayers = handleLifeChange(player.id, amount);
+                updatePlayersAndCheckEnd(updatedPlayers);
+              }}
+              onCommanderDamageChange={(amount) => {
+                const updatedPlayers = handleCommanderDamageChange(player.id, amount);
+                updatePlayersAndCheckEnd(updatedPlayers);
+              }}
+              onPoisonCountersChange={(amount) => {
+                const updatedPlayers = handlePoisonCountersChange(player.id, amount);
+                updatePlayersAndCheckEnd(updatedPlayers);
+              }}
               onSettingsPress={() => setShowSettings(player.id)}
               onRemove={() => removePlayer(player.id)}
               disabled={gameEnded}
@@ -409,6 +432,9 @@ export default function App() {
         </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowHistory(true)}>
           <Ionicons name="list" size={24} color="orange" />
+        </Pressable>
+        <Pressable style={tw`mx-2`} onPress={() => setShowDiceRoller(true)}>
+          <Ionicons name="dice" size={24} color="blue" />
         </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowGameTimer(true)}>
           <Ionicons name="timer" size={24} color="purple" />
@@ -484,6 +510,20 @@ export default function App() {
         </View>
       </Modal>
 
+      <Modal visible={showDiceRoller} animationType="slide" transparent={true}>
+        <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
+          <View style={tw`bg-white p-4 rounded-lg w-4/5`}>
+            <DiceRoller onRoll={handleDiceRoll} />
+            <Pressable
+              style={tw`bg-red-500 p-2 rounded mt-4`}
+              onPress={() => setShowDiceRoller(false)}
+            >
+              <Text style={tw`text-white text-center font-bold`}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Game Timer Modal */}
       <Modal visible={showGameTimer} animationType="slide" transparent={true}>
         <View style={tw`flex-1 justify-center items-center bg-black bg-opacity-50`}>
@@ -523,4 +563,23 @@ export default function App() {
       />
     </View>
   );
+}
+
+export default function App() {
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  const initializeFonts = useCallback(async () => {
+    await loadFonts();
+    setFontsLoaded(true);
+  }, []);
+
+  useEffect(() => {
+    initializeFonts();
+  }, [initializeFonts]);
+
+  if (!fontsLoaded) {
+    return <View><Text>Loading...</Text></View>;
+  }
+
+  return <MainContent />;
 }
