@@ -3,6 +3,7 @@ import { View, Text, Pressable, ImageBackground } from 'react-native';
 import tw from '../tailwind';
 import { Player } from '../types';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import Ionicons from '@expo/vector-icons/Ionicons';
 
 interface PlayerComponentProps {
   player: Player;
@@ -187,7 +188,7 @@ const PlayerComponent: React.FC<PlayerComponentProps> = ({ player, onLifeChange,
           
           {player.isDead && (
             <View style={tw`absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center`}>
-              <Text style={tw`text-white text-4xl font-bold`}>DEAD</Text>
+              <Ionicons name="skull" size={100} color="white" />
             </View>
           )}
         </View>

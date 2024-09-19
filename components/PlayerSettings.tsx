@@ -3,6 +3,7 @@ import { View, Text, TextInput, Pressable, Modal, Image } from 'react-native';
 import tw from '../tailwind';
 import { Player } from '../types';
 import CardArtSelector from './CardArtSelector';
+import PlayerStats from './PlayerStats';
 
 interface PlayerSettingsProps {
   visible: boolean;
@@ -15,6 +16,7 @@ const PlayerSettings: React.FC<PlayerSettingsProps> = ({ visible, player, onUpda
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('');
   const [showCardArtSelector, setShowCardArtSelector] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     if (player) {
@@ -58,6 +60,12 @@ const PlayerSettings: React.FC<PlayerSettingsProps> = ({ visible, player, onUpda
           >
             <Text style={tw`text-white text-center`}>Change Card Art</Text>
           </Pressable>
+          <Pressable
+            style={tw`bg-purple-500 p-2 rounded mb-2`}
+            onPress={() => setShowStats(true)}
+          >
+            <Text style={tw`text-white text-center`}>View Player Stats</Text>
+          </Pressable>
           {icon && (
             <Image
               source={{ uri: icon }}
@@ -85,6 +93,19 @@ const PlayerSettings: React.FC<PlayerSettingsProps> = ({ visible, player, onUpda
           onPress={() => setShowCardArtSelector(false)}
         >
           <Text style={tw`text-white text-center`}>Close</Text>
+        </Pressable>
+      </Modal>
+      <Modal visible={showStats} animationType="slide">
+        {player && player.stats ? (
+          <PlayerStats stats={player.stats} name={player.name} />
+        ) : (
+          <Text>No stats available</Text>
+        )}
+        <Pressable
+          style={tw`bg-red-500 p-2 m-4 rounded`}
+          onPress={() => setShowStats(false)}
+        >
+          <Text style={tw`text-white text-center font-bold`}>Close</Text>
         </Pressable>
       </Modal>
     </Modal>

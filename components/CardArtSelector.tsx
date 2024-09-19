@@ -20,7 +20,6 @@ const CardArtSelector: React.FC<CardArtSelectorProps> = ({ onSelectArt }) => {
     setError('');
 
     try {
-      // Check cache first
       const cachedResults = await AsyncStorage.getItem(`card_search_${term}`);
       if (cachedResults) {
         setSearchResults(JSON.parse(cachedResults));
@@ -45,7 +44,6 @@ const CardArtSelector: React.FC<CardArtSelectorProps> = ({ onSelectArt }) => {
       const data = await response.json();
       setSearchResults(data.data || []);
 
-      // Cache the results
       await AsyncStorage.setItem(`card_search_${term}`, JSON.stringify(data.data || []));
 
     } catch (error: unknown) {

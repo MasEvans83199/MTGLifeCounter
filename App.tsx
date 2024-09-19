@@ -12,6 +12,7 @@ import GameTimer from './components/GameTimer';
 import DiceRoller from './components/DiceRoller';
 import CardArtSelector from './components/CardArtSelector';
 import CardSearch from './components/CardSearch';
+import PlayerStats from './components/PlayerStats';
 
 const loadFonts = async () => {
   await Font.loadAsync({
@@ -40,6 +41,7 @@ function MainContent(){
   const [timerInterval, setTimerInterval] = useState<NodeJS.Timeout | null>(null);
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showCardSearch, setShowCardSearch] = useState(false);
+  const [showStats, setShowStats] = useState(false);
 
   useEffect(() => {
     loadPresets();
@@ -62,7 +64,15 @@ function MainContent(){
     const newPreset: Preset = {
       id: Date.now().toString(),
       name: presetName,
-      players: players.map(p => ({ ...p, life: 40, commanderDamage: 0, poisonCounters: 0, isDead: false })),
+      players: players.map(p => ({ 
+        ...p, 
+        life: 40, 
+        commanderDamage: 0, 
+        poisonCounters: 0, 
+        isDead: false,
+        stats: p.stats || getDefaultStats()
+      })),
+      gameState: null 
     };
     const updatedPresets = [...presets, newPreset];
     setPresets(updatedPresets);
@@ -74,7 +84,7 @@ function MainContent(){
       console.error('Failed to save preset', error);
     }
   };
-
+  
   const editPreset = (presetId: string) => {
     const preset = presets.find(p => p.id === presetId);
     if (preset) {
@@ -95,11 +105,80 @@ function MainContent(){
   };  
 
   const loadPreset = (preset: Preset) => {
-    setPlayers(preset.players.map(p => ({ ...p, life: 40, commanderDamage: 0, poisonCounters: 0, isDead: false })));
+    if (preset.gameState) {
+      setPlayers(preset.gameState.players);
+      setGameHistory(preset.gameState.gameHistory);
+      setGameEnded(preset.gameState.gameEnded);
+    } else {
+      setPlayers(preset.players.map(p => ({ 
+        ...p, 
+        life: 40, 
+        commanderDamage: 0, 
+        poisonCounters: 0, 
+        isDead: false,
+        stats: p.stats || getDefaultStats()
+      })));
+      setGameHistory([]);
+      setGameEnded(false);
+    }
     setCurrentPreset(preset);
     setShowPresetModal(false);
   };
+  
+  const getDefaultStats = () => ({
+    gamesPlayed: 0,
+    wins: 0,
+    totalLifeGained: 0,
+    totalLifeLost: 0,
+    totalCommanderDamageDealt: 0,
+    totalCommanderDamageReceived: 0,
+    totalPoisonCountersGiven: 0,
+    totalPoisonCountersReceived: 0,
+  });  
 
+  const saveCurrentGameState = async () => {
+    if (currentPreset) {
+      const updatedPreset = {
+        ...currentPreset,
+        players: players,
+        gameState: {
+          players,
+          gameHistory,
+          gameEnded
+        }
+      };
+      const updatedPresets = presets.map(p => p.id === updatedPreset.id ? updatedPreset : p);
+      setPresets(updatedPresets);
+      setCurrentPreset(updatedPreset);
+      try {
+        await AsyncStorage.setItem('presets', JSON.stringify(updatedPresets));
+        logEvent("Current game state saved.");
+      } catch (error) {
+        console.error('Failed to save current game state', error);
+      }
+    } else {
+      const newPreset: Preset = {
+        id: Date.now().toString(),
+        name: `Game ${Date.now()}`,
+        players: players,
+        gameState: {
+          players,
+          gameHistory,
+          gameEnded
+        }
+      };
+      const updatedPresets = [...presets, newPreset];
+      setPresets(updatedPresets);
+      setCurrentPreset(newPreset);
+      try {
+        await AsyncStorage.setItem('presets', JSON.stringify(updatedPresets));
+        logEvent("New preset created with current game state.");
+      } catch (error) {
+        console.error('Failed to save new preset', error);
+      }
+    }
+  };
+  
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
@@ -150,7 +229,7 @@ function MainContent(){
   };
   
   const handleLifeChange = (playerId: number, amount: number) => {
-    const updatedPlayers = players.map(p => {
+    setPlayers(prevPlayers => prevPlayers.map(p => {
       if (p.id === playerId) {
         const newLife = Math.max(0, p.life + amount);
         const isDead = newLife <= 0;
@@ -160,14 +239,13 @@ function MainContent(){
         return { ...p, life: newLife, isDead };
       }
       return p;
-    });
-    setPlayers(updatedPlayers);
+    }));
     bufferChange(playerId, 'life', amount);
-    return updatedPlayers;
+    checkGameEnd();
   };
   
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    const updatedPlayers = players.map(p => {
+    setPlayers(prevPlayers => prevPlayers.map(p => {
       if (p.id === playerId) {
         const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
         const newLife = Math.max(0, p.life - amount);
@@ -178,14 +256,13 @@ function MainContent(){
         return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
       }
       return p;
-    });
-    setPlayers(updatedPlayers);
+    }));
     bufferChange(playerId, 'commanderDamage', amount);
-    return updatedPlayers;
+    checkGameEnd();
   };
   
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    const updatedPlayers = players.map(p => {
+    setPlayers(prevPlayers => prevPlayers.map(p => {
       if (p.id === playerId) {
         const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
         const isDead = newPoisonCounters >= 10;
@@ -195,10 +272,9 @@ function MainContent(){
         return { ...p, poisonCounters: newPoisonCounters, isDead };
       }
       return p;
-    });
-    setPlayers(updatedPlayers);
+    }));
     bufferChange(playerId, 'poisonCounters', amount);
-    return updatedPlayers;
+    checkGameEnd();
   };
   
   const getPlayerContainerStyle = (totalPlayers: number, index: number) => {
@@ -220,13 +296,13 @@ function MainContent(){
         poisonCounters: 0,
         isDead: false,
         icon: 'https://gatherer.wizards.com/Handlers/Image.ashx?type=card&multiverseid=0',
-        wins: 0,
-        hasCrown: false
+        hasCrown: false,
+        stats: getDefaultStats()
       };
       setPlayers([...players, newPlayer]);
       logEvent(`${newPlayer.name} has joined the game.`);
     }
-  };
+  };  
   
   const removePlayer = (playerId: number) => {
     const player = players.find(p => p.id === playerId);
@@ -274,16 +350,34 @@ function MainContent(){
     logEvent(`Dice roll result: ${result}`);
   };
 
-  const resetGame = () => {
-    setPlayers(players.map(player => ({ 
+  const resetGame = async () => {
+    const resetPlayers = players.map(player => ({ 
       ...player, 
       life: 40, 
       commanderDamage: 0, 
       poisonCounters: 0, 
       isDead: false 
-    })));
+    }));
+    setPlayers(resetPlayers);
     setGameEnded(false);
+    setGameHistory([]);
     logEvent("Game has been reset. New game starting!");
+  
+    if (currentPreset) {
+      const updatedPreset = {
+        ...currentPreset,
+        players: resetPlayers,
+        gameState: null
+      };
+      const updatedPresets = presets.map(p => p.id === updatedPreset.id ? updatedPreset : p);
+      setPresets(updatedPresets);
+      setCurrentPreset(updatedPreset);
+      try {
+        await AsyncStorage.setItem('presets', JSON.stringify(updatedPresets));
+      } catch (error) {
+        console.error('Failed to save reset game state', error);
+      }
+    }
   };
   
   const updatePlayer = (updatedPlayer: Player) => {
@@ -291,45 +385,69 @@ function MainContent(){
     logEvent(`${updatedPlayer.name}'s information has been updated.`);
   };
 
-  const handleGameEnd = useCallback((winnerId: number) => {
+  const handleGameEnd = useCallback(async (winnerId: number) => {
     if (gameEnded) return;
     
     const winner = players.find(p => p.id === winnerId);
     if (winner) {
       console.log('Handling game end. Winner:', winner.name);
       logEvent(`${winner.name} has won the game!`);
-      setPlayers(prevPlayers => prevPlayers.map(p => ({
-        ...p,
-        hasCrown: p.id === winnerId,
-        wins: p.id === winnerId ? p.wins + 1 : p.wins
-      })));
+      
+      setPlayers(prevPlayers => prevPlayers.map(p => {
+        const playerStats = p.stats || getDefaultStats();
+        return {
+          ...p,
+          hasCrown: p.id === winnerId,
+          isDead: p.id !== winnerId,
+          stats: {
+            ...playerStats,
+            gamesPlayed: playerStats.gamesPlayed + 1,
+            wins: p.id === winnerId ? playerStats.wins + 1 : playerStats.wins,
+            totalLifeGained: playerStats.totalLifeGained + (p.life > 40 ? p.life - 40 : 0),
+            totalLifeLost: playerStats.totalLifeLost + (p.life < 40 ? 40 - p.life : 0),
+            totalCommanderDamageDealt: playerStats.totalCommanderDamageDealt + p.commanderDamage,
+            totalCommanderDamageReceived: playerStats.totalCommanderDamageReceived + (p.life <= 0 && p.commanderDamage >= 21 ? 21 : 0),
+            totalPoisonCountersGiven: playerStats.totalPoisonCountersGiven + p.poisonCounters,
+            totalPoisonCountersReceived: playerStats.totalPoisonCountersReceived + (p.life <= 0 && p.poisonCounters >= 10 ? 10 : 0),
+          }
+        };
+      }));
   
       if (currentPreset) {
         const updatedPreset = {
           ...currentPreset,
-          players: currentPreset.players.map(p => 
-            p.id === winnerId ? { ...p, wins: p.wins + 1, hasCrown: true } : { ...p, hasCrown: false }
-          ),
+          players: players.map(p => ({
+            ...p,
+            hasCrown: p.id === winnerId,
+            isDead: p.id !== winnerId,
+            stats: p.stats || getDefaultStats()
+          })),
+          gameState: null
         };
+        const updatedPresets = presets.map(p => p.id === updatedPreset.id ? updatedPreset : p);
+        setPresets(updatedPresets);
         setCurrentPreset(updatedPreset);
-        setPresets(prevPresets => prevPresets.map(p => p.id === updatedPreset.id ? updatedPreset : p));
-        AsyncStorage.setItem('presets', JSON.stringify(presets)).catch(error =>
-          console.error('Failed to save updated preset', error)
-        );
+        try {
+          await AsyncStorage.setItem('presets', JSON.stringify(updatedPresets));
+        } catch (error) {
+          console.error('Failed to save updated preset', error);
+        }
       }
       setGameEnded(true);
     }
-  }, [players, gameEnded, currentPreset, presets, logEvent]);  
-
-  const updatePlayersAndCheckEnd = (updatedPlayers: Player[]) => {
-    setPlayers(updatedPlayers);
-    const alivePlayers = updatedPlayers.filter(p => !p.isDead);
-    console.log('Checking game end. Alive players:', alivePlayers.length);
-    if (updatedPlayers.length > 1 && alivePlayers.length === 1 && !gameEnded) {
-      console.log('Game should end. Winner:', alivePlayers[0].name);
-      handleGameEnd(alivePlayers[0].id);
-    }
-  };
+  }, [players, gameEnded, currentPreset, presets, logEvent, getDefaultStats]);
+  
+  const updatePlayersAndCheckEnd = useCallback(() => {
+    setPlayers(prevPlayers => {
+      const alivePlayers = prevPlayers.filter(p => !p.isDead);-
+      console.log('Checking game end. Alive players:', alivePlayers.length);
+      if (prevPlayers.length > 1 && alivePlayers.length === 1 && !gameEnded) {
+        console.log('Game should end. Winner:', alivePlayers[0].name);
+        handleGameEnd(alivePlayers[0].id);
+      }
+      return prevPlayers;
+    });
+  }, [gameEnded, handleGameEnd]);
   
   useEffect(() => {
     const saveGameState = async () => {
@@ -353,30 +471,43 @@ function MainContent(){
         const savedState = await AsyncStorage.getItem('gameState');
         if (savedState) {
           const { players: savedPlayers, gameHistory: savedHistory, gameEnded: savedGameEnded } = JSON.parse(savedState);
-          setPlayers(savedPlayers);
+          const playersWithStats = savedPlayers.map((player: Partial<Player>) => ({
+            ...player,
+            stats: player.stats || {
+              gamesPlayed: 0,
+              wins: 0,
+              totalLifeGained: 0,
+              totalLifeLost: 0,
+              totalCommanderDamageDealt: 0,
+              totalCommanderDamageReceived: 0,
+              totalPoisonCountersGiven: 0,
+              totalPoisonCountersReceived: 0
+            }
+          }));
+          setPlayers(playersWithStats as Player[]);
           setGameHistory(savedHistory);
           setGameEnded(savedGameEnded);
         }
       } catch (error) {
         console.error('Failed to load game state', error);
       }
-    };
+    };    
   
     loadGameState();
-  }, []);
+  }, []);    
   
-  useEffect(() => {
+  const checkGameEnd = useCallback(() => {
     if (gameEnded) return;
   
-    const updatedPlayers = players.map(player => ({
-      ...player,
-      isDead: player.life <= 0 || player.commanderDamage >= 21 || player.poisonCounters >= 10
-    }));
-  
-    if (JSON.stringify(updatedPlayers) !== JSON.stringify(players)) {
-      updatePlayersAndCheckEnd(updatedPlayers);
+    const alivePlayers = players.filter(p => !p.isDead);
+    console.log('Checking game end. Alive players:', alivePlayers.length);
+    
+    if (players.length > 1 && alivePlayers.length === 1) {
+      console.log('Game should end. Winner:', alivePlayers[0].name);
+      handleGameEnd(alivePlayers[0].id);
     }
-  }, [players, gameEnded]);
+  }, [players, gameEnded, handleGameEnd]);
+  
   
   useEffect(() => {
     if (isTimerActive && timeLeft > 0) {
@@ -404,20 +535,20 @@ function MainContent(){
             <PlayerComponent
               player={player}
               onLifeChange={(amount) => {
-                const updatedPlayers = handleLifeChange(player.id, amount);
-                updatePlayersAndCheckEnd(updatedPlayers);
+                handleLifeChange(player.id, amount);
+                updatePlayersAndCheckEnd();
               }}
               onCommanderDamageChange={(amount) => {
-                const updatedPlayers = handleCommanderDamageChange(player.id, amount);
-                updatePlayersAndCheckEnd(updatedPlayers);
+                handleCommanderDamageChange(player.id, amount);
+                updatePlayersAndCheckEnd();
               }}
               onPoisonCountersChange={(amount) => {
-                const updatedPlayers = handlePoisonCountersChange(player.id, amount);
-                updatePlayersAndCheckEnd(updatedPlayers);
+                handlePoisonCountersChange(player.id, amount);
+                updatePlayersAndCheckEnd();
               }}
               onSettingsPress={() => setShowSettings(player.id)}
               onRemove={() => removePlayer(player.id)}
-              disabled={gameEnded}
+              disabled={gameEnded || player.isDead}
             />
           </View>
         ))}
@@ -430,13 +561,16 @@ function MainContent(){
           <Ionicons name="refresh" size={24} color="red" />
         </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowPresetModal(true)}>
-          <Ionicons name="save" size={24} color="green" />
+          <Ionicons name="clipboard" size={24} color="brown" />
         </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowHistory(true)}>
           <Ionicons name="list" size={24} color="orange" />
         </Pressable>
+        <Pressable style={tw`mx-2`} onPress={saveCurrentGameState}>
+          <Ionicons name="save-outline" size={24} color="green" />
+        </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowCardSearch(true)}>
-          <Ionicons name="search" size={24} color="blue" />
+          <Ionicons name="search" size={24} color="gray" />
         </Pressable>
         <Pressable style={tw`mx-2`} onPress={() => setShowDiceRoller(true)}>
           <Ionicons name="dice" size={24} color="blue" />
