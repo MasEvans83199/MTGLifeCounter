@@ -15,9 +15,13 @@ const GameHistory: React.FC<GameHistoryProps> = ({ visible, history, onClose }) 
         <View style={tw`bg-white p-4 rounded-lg w-4/5 h-3/4`}>
           <Text style={tw`text-lg font-bold mb-2`}>Game History</Text>
           <ScrollView style={tw`mb-4`}>
-            {history.map((event, index) => (
-              <Text key={index} style={tw`mb-1`}>{event}</Text>
-            ))}
+            {history && history.length > 0 ? (
+              history.map((event, index) => (
+                <Text key={index} style={tw`mb-1`}>{event}</Text>
+              ))
+            ) : (
+              <Text>No history available</Text>
+            )}
           </ScrollView>
           <Pressable onPress={onClose} style={tw`mt-4 bg-red-500 p-2 rounded`}>
             <Text style={tw`text-white text-center font-bold`}>Close</Text>

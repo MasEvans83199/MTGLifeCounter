@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import 'setimmediate';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import * as Font from 'expo-font';
+import { debounce } from 'lodash';
 import { View, Text, Pressable, Animated, Modal, TextInput } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +15,9 @@ import DiceRoller from './components/DiceRoller';
 import CardArtSelector from './components/CardArtSelector';
 import CardSearch from './components/CardSearch';
 import PlayerStats from './components/PlayerStats';
+import MultiplayerSetup from './components/MultiplayerSetup';
+import { updateGameState, listenToGameState } from './src/utils/firebase';
+import { app, db } from './src/firebaseConfig';
 
 const loadFonts = async () => {
   await Font.loadAsync({
@@ -42,7 +47,73 @@ function MainContent(){
   const [showDiceRoller, setShowDiceRoller] = useState(false);
   const [showCardSearch, setShowCardSearch] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  const [isMultiplayer, setIsMultiplayer] = useState(false);
+  const [gameId, setGameId] = useState<string | null>(null);
+  const [isHost, setIsHost] = useState(false);
 
+  const playersRef = useRef(players);
+  const gameHistoryRef = useRef(gameHistory);
+
+  useEffect(() => {
+    playersRef.current = players;
+  }, [players]);
+
+  useEffect(() => {
+    gameHistoryRef.current = gameHistory;
+  }, [gameHistory]);
+
+  const handleGameStart = (newGameId: string, host: boolean) => {
+    setGameId(newGameId);
+    setIsHost(host);
+    setIsMultiplayer(true);
+  };
+
+  useEffect(() => {
+    if (isMultiplayer && gameId) {
+      const unsubscribe = listenToGameState(gameId, (newGameState) => {
+        if (newGameState) {
+          setPlayers(prevPlayers => {
+            // Only update if the new state is different
+            if (JSON.stringify(prevPlayers) !== JSON.stringify(newGameState.players)) {
+              return newGameState.players;
+            }
+            return prevPlayers;
+          });
+          setGameHistory(prevHistory => {
+            if (JSON.stringify(prevHistory) !== JSON.stringify(newGameState.gameHistory)) {
+              return newGameState.gameHistory;
+            }
+            return prevHistory;
+          });
+          setGameEnded(newGameState.gameEnded);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [isMultiplayer, gameId]);
+  
+  const debouncedSyncGameState = useCallback(
+    debounce((gameState) => {
+      if (isMultiplayer && gameId) {
+        updateGameState(gameId, {
+          ...gameState,
+          players: playersRef.current,
+          gameHistory: gameHistoryRef.current,
+        });
+      }
+    }, 1000),
+    [isMultiplayer, gameId]
+  );
+  
+  const syncGameState = useCallback(() => {
+    const sanitizedGameHistory = gameHistory ? gameHistory.filter((event: string | undefined) => event !== undefined) : [];
+    debouncedSyncGameState({ 
+      players, 
+      gameHistory: sanitizedGameHistory, 
+      gameEnded 
+    });
+  }, [debouncedSyncGameState, players, gameHistory, gameEnded]);  
+  
   useEffect(() => {
     loadPresets();
   }, []);
@@ -185,9 +256,24 @@ function MainContent(){
     return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
   
-  const logEvent = (event: string) => {
-    setGameHistory(prevHistory => [...prevHistory, `[${new Date().toLocaleTimeString()}] ${event}`]);
-  };
+  const eventQueueRef = useRef<string[]>([]);
+
+  const processEventQueue = useCallback(() => {
+    if (eventQueueRef.current.length > 0) {
+      const event = eventQueueRef.current.shift();
+      if (event) {
+        setGameHistory(prevHistory => [...prevHistory, `[${new Date().toLocaleTimeString()}] ${event}`]);
+      }
+      setTimeout(processEventQueue, 0);
+    }
+  }, []);
+  
+  const logEvent = useCallback((event: string) => {
+    eventQueueRef.current.push(event);
+    if (eventQueueRef.current.length === 1) {
+      processEventQueue();
+    }
+  }, [processEventQueue]);  
 
   const logBufferedChanges = () => {
     Object.entries(changeBuffer).forEach(([playerId, changes]) => {
@@ -229,50 +315,93 @@ function MainContent(){
   };
   
   const handleLifeChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newLife = Math.max(0, p.life + amount);
-        const isDead = newLife <= 0;
-        if (isDead && !p.isDead) {
-          logEvent(`${p.name} has been eliminated due to loss of life!`);
-        }
-        return { ...p, life: newLife, isDead };
+    const player = playersRef.current.find(p => p.id === playerId);
+    if (player) {
+      const newLife = Math.max(0, player.life + amount);
+      logEvent(`${player.name} ${amount > 0 ? 'gained' : 'lost'} ${Math.abs(amount)} life. New total: ${newLife}`);
+      if (newLife <= 0 && !player.isDead) {
+        logEvent(`${player.name} has been eliminated due to loss of life!`);
       }
-      return p;
-    }));
+    }
+  
+    setPlayers(prevPlayers => {
+      const newPlayers = prevPlayers.map(p => {
+        if (p.id === playerId) {
+          const newLife = Math.max(0, p.life + amount);
+          return { ...p, life: newLife, isDead: newLife <= 0 };
+        }
+        return p;
+      });
+      
+      debouncedSyncGameState({ 
+        players: newPlayers, 
+        gameHistory: gameHistoryRef.current, 
+        gameEnded 
+      });
+      
+      return newPlayers;
+    });
     bufferChange(playerId, 'life', amount);
     checkGameEnd();
   };
   
   const handleCommanderDamageChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
-        const newLife = Math.max(0, p.life - amount);
-        const isDead = newLife <= 0 || newCommanderDamage >= 21;
-        if (isDead && !p.isDead) {
-          logEvent(`${p.name} has been eliminated by commander damage!`);
+    setPlayers(prevPlayers => {
+      const newPlayers = prevPlayers.map(p => {
+        if (p.id === playerId) {
+          const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
+          const newLife = Math.max(0, p.life - amount);
+          const isDead = newLife <= 0 || newCommanderDamage >= 21;
+          const player = prevPlayers.find(player => player.id === playerId);
+          if (player) {
+            logEvent(`${player.name} received ${amount} commander damage. New total: ${newCommanderDamage}`);
+            if (isDead && !p.isDead) {
+              logEvent(`${player.name} has been eliminated by commander damage!`);
+            }
+          }
+          return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
         }
-        return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
-      }
-      return p;
-    }));
+        return p;
+      });
+      
+      debouncedSyncGameState({ 
+        players: newPlayers, 
+        gameHistory: gameHistory ? gameHistory.filter(event => event !== undefined) : [], 
+        gameEnded 
+      });
+      
+      return newPlayers;
+    });
     bufferChange(playerId, 'commanderDamage', amount);
     checkGameEnd();
   };
   
   const handlePoisonCountersChange = (playerId: number, amount: number) => {
-    setPlayers(prevPlayers => prevPlayers.map(p => {
-      if (p.id === playerId) {
-        const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
-        const isDead = newPoisonCounters >= 10;
-        if (isDead && !p.isDead) {
-          logEvent(`${p.name} has been eliminated by poison!`);
+    setPlayers(prevPlayers => {
+      const newPlayers = prevPlayers.map(p => {
+        if (p.id === playerId) {
+          const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
+          const isDead = newPoisonCounters >= 10;
+          const player = prevPlayers.find(player => player.id === playerId);
+          if (player) {
+            logEvent(`${player.name} received ${amount} poison counter. New total: ${newPoisonCounters}`);
+            if (isDead && !p.isDead) {
+              logEvent(`${player.name} has been eliminated by poison!`);
+            }
+          }
+          return { ...p, poisonCounters: newPoisonCounters, isDead };
         }
-        return { ...p, poisonCounters: newPoisonCounters, isDead };
-      }
       return p;
-    }));
+      });
+
+      debouncedSyncGameState({ 
+        players: newPlayers, 
+        gameHistory: gameHistory ? gameHistory.filter(event => event !== undefined) : [], 
+        gameEnded 
+      });
+      
+      return newPlayers;
+    });
     bufferChange(playerId, 'poisonCounters', amount);
     checkGameEnd();
   };
@@ -302,6 +431,7 @@ function MainContent(){
       setPlayers([...players, newPlayer]);
       logEvent(`${newPlayer.name} has joined the game.`);
     }
+    syncGameState();
   };  
   
   const removePlayer = (playerId: number) => {
@@ -310,6 +440,7 @@ function MainContent(){
       setPlayers(players.filter(p => p.id !== playerId));
       logEvent(`${player.name} has been removed from the game.`);
     }
+    syncGameState();
   };
 
   const handleTimeUp = () => {
@@ -378,11 +509,13 @@ function MainContent(){
         console.error('Failed to save reset game state', error);
       }
     }
+    syncGameState();
   };
   
   const updatePlayer = (updatedPlayer: Player) => {
     setPlayers(players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
     logEvent(`${updatedPlayer.name}'s information has been updated.`);
+    syncGameState();
   };
 
   const handleGameEnd = useCallback(async (winnerId: number) => {
@@ -435,6 +568,7 @@ function MainContent(){
       }
       setGameEnded(true);
     }
+    syncGameState();
   }, [players, gameEnded, currentPreset, presets, logEvent, getDefaultStats]);
   
   const updatePlayersAndCheckEnd = useCallback(() => {
@@ -523,6 +657,10 @@ function MainContent(){
 
   return (
     <View style={tw`flex-1 bg-gray-100 pt-12`}>
+      {!isMultiplayer ? (
+      <MultiplayerSetup onGameStart={handleGameStart} />
+    ) : (
+      <>
       <Text style={tw`text-3xl font-bold text-center mb-4`}>MTG Life Counter</Text>
       {showMiniTimer && (
         <Animated.View style={[tw`absolute top-4 right-4 bg-gray-800 p-2 rounded`, { opacity: miniTimerOpacity }]}>
@@ -705,6 +843,8 @@ function MainContent(){
         visible={showCardSearch}
         onClose={() => setShowCardSearch(false)}
       />
+      </>
+    )}
     </View>
   );
 }
