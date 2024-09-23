@@ -1,6 +1,6 @@
 import { db } from '../firebaseConfig';
 
-export const createGame = async (hostId: string) => {
+export const createGame = async (hostId: string): Promise<string | null> => {
   const gameRef = db.ref('games').push();
   const gameId = gameRef.key;
   await gameRef.set({
@@ -11,7 +11,7 @@ export const createGame = async (hostId: string) => {
   return gameId;
 };
 
-export const joinGame = async (gameId: string, playerId: string) => {
+export const joinGame = async (gameId: string, playerId: string): Promise<boolean> =>  {
   const gameRef = db.ref(`games/${gameId}`);
   const snapshot = await gameRef.once('value');
   if (snapshot.exists()) {

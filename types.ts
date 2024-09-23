@@ -1,5 +1,5 @@
 export interface Player {
-    id: number;
+    id: string;
     name: string;
     life: number;
     manaColor: string;
@@ -9,6 +9,7 @@ export interface Player {
     hasCrown: boolean;
     icon: string;
     stats: PlayerStats;
+    isHost: boolean;
   }
   
   export interface PlayerStats {
