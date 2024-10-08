@@ -1,0 +1,340 @@
+Logging event: Game created App.tsx:363:12
+New game history: 
+Array [ "[2:15:44 PM] Game created" ]
+App.tsx:367:14
+Unexpected text node: . A text node cannot be a child of a <View>. index.js:55:16
+Logging event: m's information has been updated. App.tsx:363:12
+New game history: 
+Array [ "[2:15:58 PM] m's information has been updated." ]
+App.tsx:367:14
+Logging event: m lost 10 life. New total: 30 App.tsx:363:12
+New game history: 
+Array [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30" ]
+App.tsx:367:14
+Logging event: m lost 10 life. New total: 20 App.tsx:363:12
+New game history: 
+Array(3) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20" ]
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 19 App.tsx:363:12
+New game history: 
+Array(4) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19" ]
+App.tsx:367:14
+Logging event: m lost 10 life. New total: 9 App.tsx:363:12
+New game history: 
+Array(5) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9" ]
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 8 App.tsx:363:12
+New game history: 
+Array(6) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8" ]
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 7 App.tsx:363:12
+New game history: 
+Array(7) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7" ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+length: 7
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 6 App.tsx:363:12
+New game history: 
+Array(8) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6" ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+length: 8
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 5 App.tsx:363:12
+New game history: 
+Array(9) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5" ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+length: 9
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 4 App.tsx:363:12
+New game history: 
+Array(10) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4" ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+length: 10
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 3 App.tsx:363:12
+New game history: 
+Array(11) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+length: 11
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 2 App.tsx:363:12
+New game history: 
+Array(12) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+11: "[2:16:10 PM] m lost 1 life. New total: 2"
+​
+length: 12
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 1 App.tsx:363:12
+New game history: 
+Array(13) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+11: "[2:16:10 PM] m lost 1 life. New total: 2"
+​
+12: "[2:16:11 PM] m lost 1 life. New total: 1"
+​
+length: 13
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m lost 1 life. New total: 0 App.tsx:363:12
+New game history: 
+Array(14) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+11: "[2:16:10 PM] m lost 1 life. New total: 2"
+​
+12: "[2:16:11 PM] m lost 1 life. New total: 1"
+​
+13: "[2:16:12 PM] m lost 1 life. New total: 0"
+​
+length: 14
+​
+<prototype>: Array []
+App.tsx:367:14
+Logging event: m has been eliminated! App.tsx:363:12
+Handling game end. Winner: b App.tsx:823:14
+Logging event: b has won the game! App.tsx:363:12
+New game history: 
+Array(15) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+11: "[2:16:10 PM] m lost 1 life. New total: 2"
+​
+12: "[2:16:11 PM] m lost 1 life. New total: 1"
+​
+13: "[2:16:12 PM] m lost 1 life. New total: 0"
+​
+14: "[2:16:12 PM] m has been eliminated!"
+​
+length: 15
+​
+<prototype>: Array []
+App.tsx:367:14
+New game history: 
+Array(16) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+App.tsx:367:14
+Game ended. Winner: b App.tsx:82:22
+Logging event: b has won the game! App.tsx:363:12
+New game history: 
+Array(15) [ "m's information has been updated.", "[2:16:02 PM] m lost 10 life. New total: 30", "[2:16:02 PM] m lost 10 life. New total: 20", "[2:16:04 PM] m lost 1 life. New total: 19", "[2:16:06 PM] m lost 10 life. New total: 9", "[2:16:06 PM] m lost 1 life. New total: 8", "[2:16:07 PM] m lost 1 life. New total: 7", "[2:16:08 PM] m lost 1 life. New total: 6", "[2:16:08 PM] m lost 1 life. New total: 5", "[2:16:09 PM] m lost 1 life. New total: 4", … ]
+​
+0: "m's information has been updated."
+​
+1: "[2:16:02 PM] m lost 10 life. New total: 30"
+​
+2: "[2:16:02 PM] m lost 10 life. New total: 20"
+​
+3: "[2:16:04 PM] m lost 1 life. New total: 19"
+​
+4: "[2:16:06 PM] m lost 10 life. New total: 9"
+​
+5: "[2:16:06 PM] m lost 1 life. New total: 8"
+​
+6: "[2:16:07 PM] m lost 1 life. New total: 7"
+​
+7: "[2:16:08 PM] m lost 1 life. New total: 6"
+​
+8: "[2:16:08 PM] m lost 1 life. New total: 5"
+​
+9: "[2:16:09 PM] m lost 1 life. New total: 4"
+​
+10: "[2:16:10 PM] m lost 1 life. New total: 3"
+​
+11: "[2:16:10 PM] m lost 1 life. New total: 2"
+​
+12: "[2:16:11 PM] m lost 1 life. New total: 1"
+​
+13: "[2:16:12 PM] m lost 1 life. New total: 0"
+​
+14: "[2:16:12 PM] b has won the game!"
+​
+length: 15

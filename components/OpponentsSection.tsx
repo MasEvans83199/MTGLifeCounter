@@ -3,6 +3,7 @@ import { View, Text, ScrollView, Pressable } from 'react-native';
 import tw from '../tailwind';
 import { Player } from '../types';
 import PlayerComponent from './PlayerComponent';
+import { Ionicons } from '@expo/vector-icons';
 
 interface OpponentsViewProps {
   opponents: Player[];

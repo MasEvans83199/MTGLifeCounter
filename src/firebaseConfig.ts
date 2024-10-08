@@ -1,5 +1,6 @@
-import { initializeApp } from "@react-native-firebase/app";
-import database from '@react-native-firebase/database';
+import firebase from '@react-native-firebase/app';
+import '@react-native-firebase/auth';
+import '@react-native-firebase/database';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBEccP4qO_lc-A9eXdgaza5P4QIusgAA_o",
@@ -12,7 +13,8 @@ const firebaseConfig = {
   databaseURL: "https://mtg-life-counter-7fba4-default-rtdb.firebaseio.com"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = database();
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
 
-export { app, db };
+export default firebase;

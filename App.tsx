@@ -6,7 +6,7 @@ import { View, Text, Pressable, Animated, Modal, TextInput } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import tw from './tailwind';
-import { Player, Preset } from './types';
+import { User, Player, Preset } from './types';
 import PlayerComponent from './components/PlayerComponent';
 import PlayerSettings from './components/PlayerSettings';
 import GameHistory from './components/GameHistory';
@@ -16,10 +16,14 @@ import CardSearch from './components/CardSearch';
 import MultiplayerSetup from './components/MultiplayerSetup';
 import RoomCodeDisplay from './components/RoomCodeDisplay';
 import WelcomeScreen from './components/WelcomeScreen';
+import SignIn from './components/SignIn';
+import SignUp from './components/SignUp';
+import SignedInView from './components/SignedInView';
+import { signOut } from '@react-native-firebase/auth';
+import firebase from './src/firebaseConfig';
+
 import { updateGameState, listenToGameState, createGame, joinGame } from './src/utils/firebase';
-import { app, db } from './src/firebaseConfig';
 import OpponentsSection from './components/OpponentsSection';
-import PlayerCard from './components/PlayerCard';
 
 const loadFonts = async () => {
   await Font.loadAsync({
@@ -27,7 +31,11 @@ const loadFonts = async () => {
   });
 };
 
-function MainContent(){
+interface MainContentProps {
+  user: User | null;
+}
+
+const MainContent: React.FC<MainContentProps> = ({ user }) => {
   const [screen, setScreen] = useState<'welcome' | 'multiplayerSetup' | 'game'>('welcome');
   const [players, setPlayers] = useState<Player[]>([]);
   const [presets, setPresets] = useState<Preset[]>([]);
@@ -55,7 +63,6 @@ function MainContent(){
   const [isHost, setIsHost] = useState(false);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-  const [otherPlayers, setOtherPlayers] = useState<Player[]>([]);
   const [showJoinPopup, setShowJoinPopup] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [selectedOpponent, setSelectedOpponent] = useState<Player | null>(null);
@@ -73,16 +80,30 @@ function MainContent(){
 
   useEffect(() => {
     if (isMultiplayer && gameId) {
-        const unsubscribe = listenToGameState(gameId, (newGameState) => {
-            if (newGameState) {
-                setPlayers(newGameState.players);
-                setGameHistory(newGameState.gameHistory);
-                setGameEnded(newGameState.gameEnded);
+      const unsubscribe = listenToGameState(gameId, (newGameState) => {
+        if (newGameState) {
+          setPlayers(newGameState.players);
+          setGameHistory(newGameState.gameHistory);
+          setGameEnded(newGameState.gameEnded);
+  
+          if (newGameState.gameEnded) {
+            const winner = newGameState.players.find((p: Player) => p.hasCrown);
+            if (winner) {
+              console.log(`Game ended. Winner: ${winner.name}`);
+              // Update current player if it exists
+              if (currentPlayer) {
+                const updatedCurrentPlayer = newGameState.players.find((p: Player) => p.id === currentPlayer.id);
+                if (updatedCurrentPlayer) {
+                  setCurrentPlayer(updatedCurrentPlayer);
+                }
+              }
             }
-        });
-        return () => unsubscribe();
+          }
+        }
+      });
+      return () => unsubscribe();
     }
-}, [isMultiplayer, gameId]);
+  }, [isMultiplayer, gameId, currentPlayer]);
   
   const loadPresets = async () => {
     try {
@@ -156,7 +177,17 @@ function MainContent(){
     return () => {
       if (timerInterval) clearInterval(timerInterval);
     };
-  }, [isTimerActive, timerDuration]);  
+  }, [isTimerActive, timerDuration]); 
+  
+  const handleSignOut = async () => {
+    const auth = firebase.auth();
+    try {
+      await signOut(auth);
+      // The onAuthStateChanged listener in App.tsx will handle updating the UI
+    } catch (error) {
+      console.error('Error signing out: ', error);
+    }
+  };  
 
   const savePresetWithIds = async () => {
     if (presetName.trim() === '') return;
@@ -345,6 +376,10 @@ function MainContent(){
   }, []);  
 
   const logEvent = useCallback((event: string) => {
+    if (event === undefined) {
+      console.warn('Attempted to log undefined event');
+      return;
+    }
     console.log('Logging event:', event);
     setGameHistory(prevHistory => {
       const history = Array.isArray(prevHistory) ? prevHistory : [];
@@ -497,9 +532,6 @@ function MainContent(){
   
   const eventQueueRef = useRef<string[]>([]);
 
-  
-  
-  
   const logBufferedChanges = () => {
     Object.entries(changeBuffer).forEach(([playerId, changes]) => {
       const player = players.find(p => p.id === String(playerId));
@@ -540,101 +572,114 @@ function MainContent(){
   };
 
   const handleLifeChange = (playerId: string, amount: number) => {
-    setPlayers(prevPlayers => {
-        const newPlayers = prevPlayers.map(p => {
-            if (p.id === playerId) {
-                const newLife = Math.max(0, p.life + amount);
-                return { ...p, life: newLife, isDead: newLife <= 0 };
-            }
-            return p;
-        });
-
-        const updatedPlayer = newPlayers.find(p => p.id === playerId);
-        if (updatedPlayer) {
-            const event = `${updatedPlayer.name} ${amount > 0 ? 'gained' : 'lost'} ${Math.abs(amount)} life. New total: ${updatedPlayer.life}`;
-            setGameHistory(prevHistory => {
-                const newHistory = prevHistory ? [...prevHistory, `[${new Date().toLocaleTimeString()}] ${event}`] : [`[${new Date().toLocaleTimeString()}] ${event}`];
-                if(gameId){
-                    updateGameState(gameId, {
-                        players: newPlayers,
-                        gameHistory: newHistory,
-                        gameEnded
-                    });
-                }
-                return newHistory;
-            });
+  setPlayers(prevPlayers => {
+    const newPlayers = prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newLife = Math.max(0, p.life + amount);
+        const isDead = newLife <= 0;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated!`);
         }
-
-        if (currentPlayer && currentPlayer.id === playerId) {
-          setCurrentPlayer(updatedPlayer || currentPlayer);
+        return { ...p, life: newLife, isDead };
       }
-
-        return newPlayers;
+      return p;
     });
+
+    const updatedPlayer = newPlayers.find(p => p.id === playerId);
+    if (updatedPlayer) {
+      const event = `${updatedPlayer.name} ${amount > 0 ? 'gained' : 'lost'} ${Math.abs(amount)} life. New total: ${updatedPlayer.life}`;
+      logEvent(event);
+
+      if (isMultiplayer && gameId) {
+        updateGameState(gameId, {
+          players: newPlayers,
+          gameHistory: [...gameHistoryRef.current, `[${new Date().toLocaleTimeString()}] ${event}`],
+          gameEnded
+        });
+      }
+    }
+
+    if (currentPlayer && currentPlayer.id === playerId) {
+      setCurrentPlayer(updatedPlayer || currentPlayer);
+    }
+
+    checkGameEnd(newPlayers);
+    return newPlayers;
+  });
 };
 
 const handleCommanderDamageChange = (playerId: string, amount: number) => {
   setPlayers(prevPlayers => {
-      const newPlayers = prevPlayers.map(p => {
-          if (p.id === playerId) {
-              const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
-              const newLife = Math.max(0, p.life - amount);
-              const isDead = newLife <= 0 || newCommanderDamage >= 21;
-              return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
-          }
-          return p;
-      });
-
-      const updatedPlayer = newPlayers.find(p => p.id === playerId);
-      if (updatedPlayer) {
-          logEvent(`${updatedPlayer.name} received ${amount} commander damage. New total: ${updatedPlayer.commanderDamage}`);
-          if(gameId){
-              updateGameState(gameId, {
-                  players: newPlayers,
-                  gameHistory,
-                  gameEnded
-              });
-          }
+    const newPlayers = prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newCommanderDamage = Math.max(0, p.commanderDamage + amount);
+        const newLife = Math.max(0, p.life - amount);
+        const isDead = newLife <= 0 || newCommanderDamage >= 21;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated by commander damage!`);
+        }
+        return { ...p, commanderDamage: newCommanderDamage, life: newLife, isDead };
       }
+      return p;
+    });
 
-      // Update currentPlayer if it's the one being changed
-      if (currentPlayer && currentPlayer.id === playerId) {
-          setCurrentPlayer(updatedPlayer || currentPlayer);
+    const updatedPlayer = newPlayers.find(p => p.id === playerId);
+    if (updatedPlayer) {
+      const event = `${updatedPlayer.name} received ${amount} commander damage. New total: ${updatedPlayer.commanderDamage}`;
+      logEvent(event);
+
+      if (isMultiplayer && gameId) {
+        updateGameState(gameId, {
+          players: newPlayers,
+          gameHistory: [...gameHistoryRef.current, `[${new Date().toLocaleTimeString()}] ${event}`],
+          gameEnded
+        });
       }
+    }
 
-      return newPlayers;
+    if (currentPlayer && currentPlayer.id === playerId) {
+      setCurrentPlayer(updatedPlayer || currentPlayer);
+    }
+
+    checkGameEnd(newPlayers);
+    return newPlayers;
   });
 };
 
 const handlePoisonCountersChange = (playerId: string, amount: number) => {
   setPlayers(prevPlayers => {
-      const newPlayers = prevPlayers.map(p => {
-          if (p.id === playerId) {
-              const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
-              const isDead = newPoisonCounters >= 10;
-              return { ...p, poisonCounters: newPoisonCounters, isDead };
-          }
-          return p;
-      });
-
-      const updatedPlayer = newPlayers.find(p => p.id === playerId);
-      if (updatedPlayer) {
-          logEvent(`${updatedPlayer.name} ${amount > 0 ? 'received' : 'removed'} ${Math.abs(amount)} poison counter${Math.abs(amount) !== 1 ? 's' : ''}. New total: ${updatedPlayer.poisonCounters}`);
-          if(gameId){
-              updateGameState(gameId, {
-                  players: newPlayers,
-                  gameHistory,
-                  gameEnded
-              });
-          }
+    const newPlayers = prevPlayers.map(p => {
+      if (p.id === playerId) {
+        const newPoisonCounters = Math.max(0, p.poisonCounters + amount);
+        const isDead = newPoisonCounters >= 10;
+        if (isDead && !p.isDead) {
+          logEvent(`${p.name} has been eliminated by poison!`);
+        }
+        return { ...p, poisonCounters: newPoisonCounters, isDead };
       }
+      return p;
+    });
 
-      // Update currentPlayer if it's the one being changed
-      if (currentPlayer && currentPlayer.id === playerId) {
-          setCurrentPlayer(updatedPlayer || currentPlayer);
+    const updatedPlayer = newPlayers.find(p => p.id === playerId);
+    if (updatedPlayer) {
+      const event = `${updatedPlayer.name} ${amount > 0 ? 'received' : 'removed'} ${Math.abs(amount)} poison counter${Math.abs(amount) !== 1 ? 's' : ''}. New total: ${updatedPlayer.poisonCounters}`;
+      logEvent(event);
+
+      if (isMultiplayer && gameId) {
+        updateGameState(gameId, {
+          players: newPlayers,
+          gameHistory: [...gameHistoryRef.current, `[${new Date().toLocaleTimeString()}] ${event}`],
+          gameEnded
+        });
       }
+    }
 
-      return newPlayers;
+    if (currentPlayer && currentPlayer.id === playerId) {
+      setCurrentPlayer(updatedPlayer || currentPlayer);
+    }
+
+    checkGameEnd(newPlayers);
+    return newPlayers;
   });
 };
 
@@ -649,7 +694,7 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
     if (players.length < 4) {
       const manaColors = ['white', 'blue', 'black', 'red', 'green'];
       const newPlayer: Player = {
-        id: (players.length + 1).toString(),  // Convert to string to match the updated Player interface
+        id: (players.length + 1).toString(),
         name: `Player ${players.length + 1}`,
         life: 40,
         manaColor: manaColors[players.length % manaColors.length],
@@ -722,12 +767,30 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
       life: 40, 
       commanderDamage: 0, 
       poisonCounters: 0, 
-      isDead: false 
+      isDead: false,
+      hasCrown: false
     }));
+  
+    const newGameHistory = ["Game has been reset. New game starting!"];
+  
     setPlayers(resetPlayers);
     setGameEnded(false);
-    setGameHistory([]);
-    logEvent("Game has been reset. New game starting!");
+    setGameHistory(newGameHistory);
+  
+    if (currentPlayer) {
+      const updatedCurrentPlayer = resetPlayers.find(p => p.id === currentPlayer.id);
+      if (updatedCurrentPlayer) {
+        setCurrentPlayer(updatedCurrentPlayer);
+      }
+    }
+  
+    if (isMultiplayer && gameId) {
+      await updateGameState(gameId, {
+        players: resetPlayers,
+        gameHistory: newGameHistory,
+        gameEnded: false
+      });
+    }
   
     if (currentPreset) {
       const updatedPreset = {
@@ -744,24 +807,36 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
         console.error('Failed to save reset game state', error);
       }
     }
-    syncGameState();
   };
   
   const updatePlayer = (updatedPlayer: Player) => {
-    setPlayers(players.map(p => p.id === updatedPlayer.id ? updatedPlayer : p));
+    setPlayers(prevPlayers => {
+      const newPlayers = prevPlayers.map(p => p.id === updatedPlayer.id ? updatedPlayer : p);
+      if (isMultiplayer && gameId) {
+        updateGameState(gameId, {
+          players: newPlayers,
+          gameHistory: gameHistory ? [...gameHistory, `${updatedPlayer.name}'s information has been updated.`] : [`${updatedPlayer.name}'s information has been updated.`],
+          gameEnded
+        });
+      }
+      return newPlayers;
+    });
+  
+    if (currentPlayer && currentPlayer.id === updatedPlayer.id) {
+      setCurrentPlayer(updatedPlayer);
+    }
+  
     logEvent(`${updatedPlayer.name}'s information has been updated.`);
-    syncGameState();
   };
-
-  const handleGameEnd = useCallback(async (winnerId: number | string) => {
+  
+  const handleGameEnd = useCallback(async (winnerId: string) => {
     if (gameEnded) return;
     
     const winner = players.find(p => p.id === winnerId);
     if (winner) {
       console.log('Handling game end. Winner:', winner.name);
-      logEvent(`${winner.name} has won the game!`);
-      
-      setPlayers(prevPlayers => prevPlayers.map(p => {
+      const winEvent = `${winner.name} has won the game!`;
+      const updatedPlayers = players.map(p => {
         const playerStats = p.stats || getDefaultStats();
         return {
           ...p,
@@ -779,17 +854,30 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
             totalPoisonCountersReceived: playerStats.totalPoisonCountersReceived + (p.life <= 0 && p.poisonCounters >= 10 ? 10 : 0),
           }
         };
-      }));
+      });
+      logEvent(winEvent);
+      const updatedGameHistory = [...gameHistory, `[${new Date().toLocaleTimeString()}] ${winEvent}`];
+  
+      const newGameState = {
+        players: updatedPlayers,
+        gameHistory: updatedGameHistory,
+        gameEnded: true
+      };
+  
+      // Update local state
+      setPlayers(updatedPlayers);
+      setGameHistory(updatedGameHistory);
+      setGameEnded(true);
+  
+      // Update Firebase state
+      if (isMultiplayer && gameId) {
+        await updateGameState(gameId, newGameState);
+      }
   
       if (currentPreset) {
         const updatedPreset = {
           ...currentPreset,
-          players: players.map(p => ({
-            ...p,
-            hasCrown: p.id === winnerId,
-            isDead: p.id !== winnerId,
-            stats: p.stats || getDefaultStats()
-          })),
+          players: updatedPlayers,
           gameState: null
         };
         const updatedPresets = presets.map(p => p.id === updatedPreset.id ? updatedPreset : p);
@@ -801,10 +889,17 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
           console.error('Failed to save updated preset', error);
         }
       }
-      setGameEnded(true);
+
+      try {
+        await AsyncStorage.setItem('gameState', JSON.stringify(newGameState));
+      } catch (error) {
+        console.error('Failed to save game state', error);
+      }
+  
+      logEvent(winEvent);
     }
     syncGameState();
-  }, [players, gameEnded, currentPreset, presets, logEvent, getDefaultStats]);
+  }, [players, gameEnded, currentPreset, presets, gameHistory, isMultiplayer, gameId, logEvent, getDefaultStats]);
   
   const updatePlayersAndCheckEnd = useCallback(() => {
     setPlayers(prevPlayers => {
@@ -819,17 +914,17 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
   }, [gameEnded, handleGameEnd]);
   
   
-  const checkGameEnd = useCallback(() => {
+  const checkGameEnd = useCallback((currentPlayers: Player[]) => {
     if (gameEnded) return;
   
-    const alivePlayers = players.filter(p => !p.isDead);
+    const alivePlayers = currentPlayers.filter(p => !p.isDead);
     console.log('Checking game end. Alive players:', alivePlayers.length);
     
-    if (players.length > 1 && alivePlayers.length === 1) {
+    if (currentPlayers.length > 1 && alivePlayers.length === 1) {
       console.log('Game should end. Winner:', alivePlayers[0].name);
       handleGameEnd(alivePlayers[0].id);
     }
-  }, [players, gameEnded, handleGameEnd]);
+  }, [gameEnded, handleGameEnd]);
   
   return (
     <View style={tw`flex-1 bg-gray-100 pt-12`}>
@@ -1100,6 +1195,8 @@ const handlePoisonCountersChange = (playerId: string, amount: number) => {
 
 export default function App() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [isSignUp, setIsSignUp] = useState(false);
 
   const initializeFonts = useCallback(async () => {
     await loadFonts();
@@ -1114,5 +1211,36 @@ export default function App() {
     return <View><Text>Loading...</Text></View>;
   }
 
-  return <MainContent />;
+  const handleSignIn = (user: User) => {
+    setUser(user);
+  };
+
+  const handleSignUp = (user: User) => {
+    setUser(user);
+  };
+
+  const handleSwitchToSignUp = () => setIsSignUp(true);
+  const handleSwitchToSignIn = () => setIsSignUp(false);
+
+  const handleForgotPassword = () => {
+    // Navigate to ForgotPassword component or show a modal
+    console.log('Navigate to Forgot Password');
+  };
+
+  if (!user) {
+    return isSignUp ? (
+      <SignUp
+        onSignUp={handleSignUp}
+        onSwitchToSignIn={handleSwitchToSignIn}
+      />
+    ) : (
+      <SignIn
+        onSignIn={handleSignIn}
+        onSwitchToSignUp={handleSwitchToSignUp}
+        onForgotPassword={handleForgotPassword}
+      />
+    );
+  }
+
+  return <MainContent user={user} />;
 }
